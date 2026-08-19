@@ -22,14 +22,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug
+      - name: Build with Gradle (release, minified)
+        run: ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HeliBoard-debug
-          path: app/build/outputs/apk/debug/*-debug*.apk
+          name: FrostKeys-release
+          path: app/build/outputs/apk/release/*-release*.apk
 
       - name: Archive reports for failed job
         uses: actions/upload-artifact@v4
