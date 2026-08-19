@@ -2424,6 +2424,10 @@ public class LatinIME extends InputMethodService implements
             case TRIM_MEMORY_RUNNING_LOW, TRIM_MEMORY_RUNNING_CRITICAL, TRIM_MEMORY_COMPLETE -> {
                 KeyboardLayoutSet.onSystemLocaleChanged(); // clears caches, nothing else
                 mKeyboardSwitcher.trimMemory();
+                // Release dictionary memory (27MB+) under system pressure.
+                // Reload on next input is acceptable here — trim is rare,
+                // unlike hiding/reopening the keyboard.
+                mDictionaryFacilitator.closeDictionaries();
             }
             // deallocateMemory always called on hiding, and should not be called when
             // showing
