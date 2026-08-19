@@ -1466,7 +1466,7 @@ public class LatinIME extends InputMethodService implements
         mKeyboardSwitcher.clearCachedPersistentEmojis();
 
         // Completely disable background blur composition, layout attributes and clear SemBlurInfo/window flags to save GPU context
-        FrostedGlassHelper.configureFrostedGlass(this, mInputView, false);
+        FrostedGlassHelper.configureFrostedGlass(this, mInputView, false, false);
 
         final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
         if (mainKeyboardView != null) {

@@ -241,8 +241,14 @@ object FrostedGlassHelper {
     }
 
     @JvmStatic
-    fun configureFrostedGlass(service: InputMethodService, inputView: View?, enable: Boolean) {
-        configureFrostedGlassInternal(service, inputView, enable, allowDelayedNativeCleanup = true)
+    @JvmOverloads
+    fun configureFrostedGlass(
+        service: InputMethodService,
+        inputView: View?,
+        enable: Boolean,
+        allowDelayedNativeCleanup: Boolean = true
+    ) {
+        configureFrostedGlassInternal(service, inputView, enable, allowDelayedNativeCleanup)
     }
 
     private fun configureFrostedGlassInternal(
@@ -937,12 +943,14 @@ object FrostedGlassHelper {
 
     private fun blurRadius(context: Context): Int {
         val isNight = isNight(context)
-        return helium314.keyboard.keyboard.KeyboardTheme.livePreviewValues?.blurRadius
+        val raw = helium314.keyboard.keyboard.KeyboardTheme.livePreviewValues?.blurRadius
             ?: if (isNight) {
                 context.prefs().getInt(Settings.PREF_FROSTED_BLUR_RADIUS_NIGHT, Defaults.PREF_FROSTED_BLUR_RADIUS_NIGHT)
             } else {
                 context.prefs().getInt(Settings.PREF_FROSTED_BLUR_RADIUS, Defaults.PREF_FROSTED_BLUR_RADIUS)
             }
+        // GPU cost ~O(r^2). Old default 65 is too heavy; cap even if prefs still hold 65.
+        return raw.coerceAtMost(36)
     }
     /**
      * Computes the Samsung SemBlurInfo tint overlay color from user preferences.
