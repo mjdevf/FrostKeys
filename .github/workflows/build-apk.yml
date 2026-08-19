@@ -1,0 +1,55 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build release (minified)
+        run: ./gradlew assembleRelease
+
+      - name: Sign release APK (keystore dari step, no source edit)
+        run: |
+          # generate ephemeral keystore — cukup buat installable, bukan rilis publik
+          keytool -genkeypair -v \
+            -keystore release.jks -alias release -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass frostkeys-ci -keypass frostkeys-ci \
+            -dname "CN=FrostKeys CI, OU=CI, O=CI, L=CI, S=CI, C=ID"
+          APK=$(ls app/build/outputs/apk/release/*-release*.apk | head -1)
+          # zipalign (harus sebelum apksigner)
+          $ANDROID_HOME/build-tools/*/zipalign -f 4 "$APK" app-aligned.apk
+          # sign
+          $ANDROID_HOME/build-tools/*/apksigner sign \
+            --ks release.jks --ks-key-alias release \
+            --ks-pass pass:frostkeys-ci --key-pass pass:frostkeys-ci \
+            --out app-signed.apk app-aligned.apk
+          mv app-signed.apk "$APK"
+          echo "signed: $APK"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrostKeys-release
+          path: app/build/outputs/apk/release/*-release*.apk
+
+      - name: Archive reports for failed job
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: '*/build/reports'
+        if: ${{ failure() }}
