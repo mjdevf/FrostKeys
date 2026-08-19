@@ -25,6 +25,14 @@ jobs:
 
       - name: Sign release APK (keystore dari step, no source edit)
         run: |
+          # cari build-tools — ANDROID_HOME kosong di runner, pakai SDK manager layout
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
+            # fallback: cari dari local.properties / gradle
+            SDK_ROOT=$(find /usr/local/lib/android -maxdepth 2 -type d -name "build-tools" 2>/dev/null | head -1 | xargs dirname)
+          fi
+          BT=$(ls -d "$SDK_ROOT"/build-tools/*/ 2>/dev/null | sort -V | tail -1)
+          echo "build-tools: $BT"
           # generate ephemeral keystore — cukup buat installable, bukan rilis publik
           keytool -genkeypair -v \
             -keystore release.jks -alias release -keyalg RSA -keysize 2048 -validity 10000 \
@@ -32,9 +40,9 @@ jobs:
             -dname "CN=FrostKeys CI, OU=CI, O=CI, L=CI, S=CI, C=ID"
           APK=$(ls app/build/outputs/apk/release/*-release*.apk | head -1)
           # zipalign (harus sebelum apksigner)
-          $ANDROID_HOME/build-tools/*/zipalign -f 4 "$APK" app-aligned.apk
+          "${BT}zipalign" -f 4 "$APK" app-aligned.apk
           # sign
-          $ANDROID_HOME/build-tools/*/apksigner sign \
+          "${BT}apksigner" sign \
             --ks release.jks --ks-key-alias release \
             --ks-pass pass:frostkeys-ci --key-pass pass:frostkeys-ci \
             --out app-signed.apk app-aligned.apk
