@@ -33,7 +33,7 @@ object FrostedGlassHelper {
     private const val ANDROID_15_API = 35
     private const val SAMSUNG_BLUR_PRESET_DARK = 130
     private const val SAMSUNG_BLUR_PRESET_LIGHT = 115
-    private const val NATIVE_BLUR_HIDE_CLEANUP_DELAY_MS = 250L
+    private const val NATIVE_BLUR_HIDE_CLEANUP_DELAY_MS = 80L
     private val failedSamsungSemBlurModes = mutableSetOf<String>()
     private var loggedSamsungLegacyApplyUnavailable = false
     private var loggedSamsungLegacyClearUnavailable = false
