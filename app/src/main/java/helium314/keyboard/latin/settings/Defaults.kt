@@ -190,7 +190,7 @@ object Defaults {
     const val PREF_SAVE_SUBTYPE_PER_APP = false
     const val PREF_SPELLCHECK_SUGGEST = true
 
-    const val PREF_FROSTED_BLUR_RADIUS = 32
+    const val PREF_FROSTED_BLUR_RADIUS = 20
     const val PREF_FROSTED_KEY_TRANSPARENCY = 115 // ~45% (Higher for light theme)
     const val PREF_FROSTED_COLOR_BLEND = 70
     const val PREF_FROSTED_SATURATION = 130
@@ -198,7 +198,7 @@ object Defaults {
     const val PREF_FROSTED_SPECIAL_VIBRANCY = 100
     const val PREF_FROSTED_ALPHABET_VIBRANCY = 100
 
-    const val PREF_FROSTED_BLUR_RADIUS_NIGHT = 28
+    const val PREF_FROSTED_BLUR_RADIUS_NIGHT = 20
     const val PREF_FROSTED_KEY_TRANSPARENCY_NIGHT = 64 // ~25%
     const val PREF_FROSTED_COLOR_BLEND_NIGHT = 70
     const val PREF_FROSTED_SATURATION_NIGHT = 115

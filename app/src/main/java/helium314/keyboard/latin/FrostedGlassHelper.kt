@@ -949,8 +949,9 @@ object FrostedGlassHelper {
             } else {
                 context.prefs().getInt(Settings.PREF_FROSTED_BLUR_RADIUS, Defaults.PREF_FROSTED_BLUR_RADIUS)
             }
-        // GPU cost ~O(r^2). Old default 65 is too heavy; cap even if prefs still hold 65.
-        return raw.coerceAtMost(36)
+        // GPU cost ~O(r^2). Even 36 was heavy on some devices; 20 keeps the frosted
+        // feel with a fraction of the cost.
+        return raw.coerceAtMost(20)
     }
     /**
      * Computes the Samsung SemBlurInfo tint overlay color from user preferences.
