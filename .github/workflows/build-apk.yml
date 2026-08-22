@@ -23,6 +23,12 @@ jobs:
       - name: Build release (minified)
         run: ./gradlew assembleRelease
 
+      - name: Restore or create persistent release keystore
+        uses: actions/cache@v4
+        with:
+          path: ci-keystore
+          key: release-keystore-v1
+
       - name: Sign release APK (keystore dari step, no source edit)
         run: |
           # cari build-tools — ANDROID_HOME kosong di runner, pakai SDK manager layout
@@ -33,18 +39,28 @@ jobs:
           fi
           BT=$(ls -d "$SDK_ROOT"/build-tools/*/ 2>/dev/null | sort -V | tail -1)
           echo "build-tools: $BT"
-          # generate ephemeral keystore — cukup buat installable, bukan rilis publik
-          keytool -genkeypair -v \
-            -keystore release.jks -alias release -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass frostkeys-ci -keypass frostkeys-ci \
-            -dname "CN=FrostKeys CI, OU=CI, O=CI, L=CI, S=CI, C=ID"
+          mkdir -p ci-keystore
+          # keystore di-cache lintas run (key: release-keystore-v1) biar signing cert konsisten —
+          # kalau digenerate ulang tiap run, APK baru ga bisa install sebagai update (signature mismatch)
+          if [ ! -f ci-keystore/release.jks ]; then
+            echo "cache miss — generate keystore baru + random password"
+            CI_KS_PASS=$(openssl rand -hex 24)
+            echo "$CI_KS_PASS" > ci-keystore/pass.txt
+            keytool -genkeypair -v \
+              -keystore ci-keystore/release.jks -alias release -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$CI_KS_PASS" -keypass "$CI_KS_PASS" \
+              -dname "CN=FrostKeys CI, OU=CI, O=CI, L=CI, S=CI, C=ID"
+          else
+            echo "cache hit — reuse existing keystore biar signing cert konsisten antar build"
+          fi
+          CI_KS_PASS=$(cat ci-keystore/pass.txt)
           APK=$(ls app/build/outputs/apk/release/*-release*.apk | head -1)
           # zipalign (harus sebelum apksigner)
           "${BT}zipalign" -f 4 "$APK" app-aligned.apk
           # sign
           "${BT}apksigner" sign \
-            --ks release.jks --ks-key-alias release \
-            --ks-pass pass:frostkeys-ci --key-pass pass:frostkeys-ci \
+            --ks ci-keystore/release.jks --ks-key-alias release \
+            --ks-pass "pass:$CI_KS_PASS" --key-pass "pass:$CI_KS_PASS" \
             --out app-signed.apk app-aligned.apk
           mv app-signed.apk "$APK"
           echo "signed: $APK"
