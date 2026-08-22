@@ -44,7 +44,10 @@ android {
         manifestPlaceholders["stickerProviderAuthority"] = "${applicationId}.stickercontentprovider"
         ndk {
             abiFilters.clear()
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+            // dipake sendiri di HP arm64 (Poco F6) — cuma build 1 arsitektur,
+            // lebih simpel & lebih kecil daripada ABI split. Kalau nanti mau
+            // pasang di HP 32-bit/emulator, tambah lagi ABI-nya di sini.
+            abiFilters.addAll(listOf("arm64-v8a"))
         }
         externalNativeBuild {
             ndkBuild {
