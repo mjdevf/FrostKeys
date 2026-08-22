@@ -949,9 +949,10 @@ object FrostedGlassHelper {
             } else {
                 context.prefs().getInt(Settings.PREF_FROSTED_BLUR_RADIUS, Defaults.PREF_FROSTED_BLUR_RADIUS)
             }
-        // GPU cost ~O(r^2). Even 36 was heavy on some devices; 20 keeps the frosted
-        // feel with a fraction of the cost.
-        return raw.coerceAtMost(20)
+        // GPU cost ~O(r^2). Slider max is 150, but let user's own choice through —
+        // capping silently at 20 made the slider lie (showed e.g. "150px" while
+        // rendering 20px). Keep only a sane hard ceiling matching the slider range.
+        return raw.coerceIn(1, 150)
     }
     /**
      * Computes the Samsung SemBlurInfo tint overlay color from user preferences.
