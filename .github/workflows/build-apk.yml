@@ -54,18 +54,16 @@ jobs:
             echo "cache hit — reuse existing keystore biar signing cert konsisten antar build"
           fi
           CI_KS_PASS=$(cat ci-keystore/pass.txt)
-          # ABI splits sekarang aktif -> ada beberapa APK (universal + per-ABI), sign semua
-          for APK in app/build/outputs/apk/release/*-release*.apk; do
-            echo "signing: $APK"
-            "${BT}zipalign" -f 4 "$APK" app-aligned.apk
-            "${BT}apksigner" sign \
-              --ks ci-keystore/release.jks --ks-key-alias release \
-              --ks-pass "pass:$CI_KS_PASS" --key-pass "pass:$CI_KS_PASS" \
-              --out app-signed.apk app-aligned.apk
-            mv app-signed.apk "$APK"
-            rm -f app-aligned.apk
-          done
-          echo "done signing $(ls app/build/outputs/apk/release/*-release*.apk | wc -l) APK(s)"
+          APK=$(ls app/build/outputs/apk/release/*-release*.apk | head -1)
+          # zipalign (harus sebelum apksigner)
+          "${BT}zipalign" -f 4 "$APK" app-aligned.apk
+          # sign
+          "${BT}apksigner" sign \
+            --ks ci-keystore/release.jks --ks-key-alias release \
+            --ks-pass "pass:$CI_KS_PASS" --key-pass "pass:$CI_KS_PASS" \
+            --out app-signed.apk app-aligned.apk
+          mv app-signed.apk "$APK"
+          echo "signed: $APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
