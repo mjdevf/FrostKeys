@@ -58,7 +58,6 @@ fun AboutScreen(
         SettingsWithoutKey.HIDDEN_FEATURES,
         SettingsWithoutKey.GITHUB_WIKI,
         SettingsWithoutKey.GITHUB,
-        SettingsWithoutKey.TELEGRAM,
         SettingsWithoutKey.SAVE_LOG,
     )
     SearchSettingsScreen(

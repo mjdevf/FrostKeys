@@ -127,10 +127,8 @@ open class SettingsActivity : ComponentActivity(), SharedPreferences.OnSharedPre
                         !UncachedInputMethodManagerUtils.isThisImeCurrent(this, imm)
                                 || !UncachedInputMethodManagerUtils.isThisImeEnabled(this, imm)
                     ) }
-                    val popupDismissed = prefs.getBoolean("pref_telegram_popup_v2_dismissed", false)
-                    val telegramJoined = prefs.getBoolean("pref_telegram_joined", false)
                     var showTelegramPopup by rememberSaveable {
-                        mutableStateOf(!popupDismissed && !telegramJoined)
+                        mutableStateOf(false)
                     }
                     if (spellchecker)
                         Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { innerPadding ->

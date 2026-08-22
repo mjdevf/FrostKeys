@@ -142,9 +142,6 @@ fun MainSettingsScreen(
         val showDataGathering = remember {
             JniUtils.sHaveGestureLib && System.currentTimeMillis() < END_DATE_EPOCH_MILLIS + TWO_WEEKS_IN_MILLIS
         }
-        val telegramJoined = remember(b?.value) {
-            ctx.prefs().getBoolean("pref_telegram_joined", false)
-        }
         val isDark = isSystemInDarkTheme()
         val scaffoldBg = if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceContainer
         Scaffold(
@@ -185,18 +182,6 @@ fun MainSettingsScreen(
                             searchState.searchField()
                             }
                         }
-                    if (!telegramJoined) {
-                        item("telegram_invite") {
-                            TelegramInviteCard(
-                                onJoinClick = {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/FrostKeys"))
-                                    ctx.startActivity(intent)
-                                    SettingsActivity.clickedTelegramJoin = true
-                                }
-                            )
-                        }
-                    }
-
                     if (!isDismissed || !allStepsComplete) {
                         item("quick_setup") {
                             QuickSetupCard(
