@@ -2160,6 +2160,15 @@ public class LatinIME extends InputMethodService implements
             // Reload keyboard because the current language has been changed.
             mKeyboardSwitcher.reloadMainKeyboard();
         }
+        // Floating state can flip on any settings/keyboard reload (e.g. rotation into/out of
+        // landscape with auto-float enabled), not just on window show or first layout — enforce
+        // it here so it doesn't end up stuck half-applied (wrong size but no drag/resize handle).
+        if (mInputView != null) {
+            if (Settings.getValues().mIsFloatingKeyboard)
+                FloatingKeyboardUtils.setFloating(mInputView);
+            else
+                FloatingKeyboardUtils.disableFloating(mInputView);
+        }
     }
 
     /**
