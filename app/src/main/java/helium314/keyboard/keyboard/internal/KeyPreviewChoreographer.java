@@ -114,12 +114,15 @@ public final class KeyPreviewChoreographer {
         // parent key. If it doesn't fit in this {@link KeyboardView}, it is moved inward to fit and
         // the left/right background is used if such background is specified.
         final int keyPreviewPosition;
-        int previewX = key.getDrawX() - (previewWidth - keyDrawWidth) / 2 + CoordinateUtils.x(originCoords);
-        if (previewX < 0) {
-            previewX = 0;
+        final int originX = CoordinateUtils.x(originCoords);
+        int previewX = key.getDrawX() - (previewWidth - keyDrawWidth) / 2 + originX;
+        if (previewX < originX) {
+            // clamp relative to the keyboard view's own origin, not the screen edge —
+            // matters when the keyboard is floating and not anchored at x=0 (FrostKeys)
+            previewX = originX;
             keyPreviewPosition = KeyPreviewView.POSITION_LEFT;
-        } else if (previewX > fullKeyboardViewWidth - previewWidth) {
-            previewX = fullKeyboardViewWidth - previewWidth;
+        } else if (previewX > fullKeyboardViewWidth - previewWidth + originX) {
+            previewX = fullKeyboardViewWidth - previewWidth + originX;
             keyPreviewPosition = KeyPreviewView.POSITION_RIGHT;
         } else {
             keyPreviewPosition = KeyPreviewView.POSITION_MIDDLE;

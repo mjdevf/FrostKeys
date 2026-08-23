@@ -24,6 +24,7 @@ import helium314.keyboard.latin.common.ColorType;
 import helium314.keyboard.latin.settings.Settings;
 import helium314.keyboard.latin.suggestions.MoreSuggestionsView;
 import helium314.keyboard.latin.suggestions.SuggestionStripView;
+import helium314.keyboard.latin.utils.FloatingKeyboardUtils;
 import kotlin.Unit;
 
 
@@ -142,6 +143,10 @@ public final class InputView extends FrameLayout {
 
         // Work around inset application being unreliable
         requestApplyInsets();
+
+        // need to update the floating keyboard position after applying insets
+        if (Settings.getValues().mIsFloatingKeyboard)
+            FloatingKeyboardUtils.setFloating(this);
         return null;
     }
 

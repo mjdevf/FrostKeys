@@ -80,6 +80,7 @@ import helium314.keyboard.latin.suggestions.SuggestionStripView;
 import helium314.keyboard.latin.suggestions.SuggestionStripViewAccessor;
 import helium314.keyboard.latin.touchinputconsumer.GestureConsumer;
 import helium314.keyboard.latin.utils.ColorUtilKt;
+import helium314.keyboard.latin.utils.FloatingKeyboardUtils;
 import helium314.keyboard.latin.utils.FoldableUtils;
 import helium314.keyboard.latin.utils.GestureDataGatheringKt;
 import helium314.keyboard.latin.utils.GestureDataGatheringSettings;
@@ -97,6 +98,7 @@ import helium314.keyboard.latin.utils.SubtypeSettings;
 import helium314.keyboard.latin.utils.SubtypeState;
 import helium314.keyboard.latin.utils.ToolbarMode;
 import helium314.keyboard.settings.SettingsActivity2;
+import kotlin.Pair;
 import kotlin.Unit;
 
 import java.io.FileDescriptor;
@@ -1451,6 +1453,8 @@ public class LatinIME extends InputMethodService implements
         super.onWindowShown();
         mLifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME);
         if (isInputViewShown()) {
+            if (mInputView != null && Settings.getValues().mIsFloatingKeyboard)
+                FloatingKeyboardUtils.setFloating(mInputView);
             setNavigationBarColor();
             workaroundForHuaweiStatusBarIssue();
             FrostedGlassHelper.configureFrostedGlass(this, mInputView, FrostedGlassHelper.isFrostedTheme(this));
@@ -1665,6 +1669,30 @@ public class LatinIME extends InputMethodService implements
         super.onComputeInsets(outInsets);
         if (mInputView == null) return;
 
+        if (Settings.getValues().mIsFloatingKeyboard) {
+            // Floating mode: the touchable area is a small rectangle placed anywhere on screen,
+            // not the usual full-width band FrostKeys computes below via TOUCHABLE_INSETS_CONTENT.
+            // Same approach as upstream HeliBoard's floating keyboard implementation.
+            final SettingsValues sv = Settings.getValues();
+            final int extraHeight = (mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0)
+                    + (int) FloatingKeyboardUtils.getFloatingHandleHeight(getResources());
+            final android.graphics.Rect windowFrame = new android.graphics.Rect();
+            mInputView.getWindowVisibleDisplayFrame(windowFrame);
+            final Pair<Integer, Integer> xy = FloatingKeyboardUtils.readPosition(this,
+                    windowFrame.right - windowFrame.left - sv.mFloatingWidth,
+                    windowFrame.bottom - windowFrame.top - extraHeight - sv.mFloatingHeight);
+            final int touchLeft = xy.getFirst();
+            final int touchTop = xy.getSecond();
+            final int touchRight = touchLeft + sv.mFloatingWidth;
+            final int touchBottom = touchTop + sv.mFloatingHeight + extraHeight;
+            outInsets.contentTopInsets = touchTop;
+            outInsets.visibleTopInsets = touchTop;
+            outInsets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION;
+            outInsets.touchableRegion.set(touchLeft, touchTop, touchRight, touchBottom);
+            if (mInsetsUpdater != null) mInsetsUpdater.setInsets(outInsets);
+            return;
+        }
+
         View visibleKeyboardView = mKeyboardSwitcher.getWrapperView();
         if (visibleKeyboardView == null || visibleKeyboardView.getVisibility() != View.VISIBLE) {
             if (mKeyboardSwitcher.getEmojiPalettesView() != null && mKeyboardSwitcher.getEmojiPalettesView().getVisibility() == View.VISIBLE) {
@@ -1741,6 +1769,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateFullscreenMode() {
+        // already unconditionally false in FrostKeys — floating mode doesn't need special handling here
         return false;
     }
 

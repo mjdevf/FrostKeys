@@ -162,6 +162,9 @@ fun createAdvancedSettings(context: Context) = listOf(
     Setting(context, Settings.PREF_DELETE_SWIPE, R.string.delete_swipe, R.string.delete_swipe_summary) {
         SwitchPreference(it, Defaults.PREF_DELETE_SWIPE)
     },
+    Setting(context, Settings.PREF_AUTO_FLOAT_LANDSCAPE, R.string.auto_float_landscape, R.string.auto_float_landscape_summary) {
+        SwitchPreference(it, Defaults.PREF_AUTO_FLOAT_LANDSCAPE)
+    },
     Setting(context, Settings.PREF_SPACE_TO_CHANGE_LANG,
         R.string.prefs_long_press_keyboard_to_change_lang,
         R.string.prefs_long_press_keyboard_to_change_lang_summary)

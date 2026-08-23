@@ -172,6 +172,15 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
     public static final String PREF_ONE_HANDED_GRAVITY_PREFIX = "one_handed_mode_gravity";
     public static final String PREF_ONE_HANDED_SCALE_PREFIX = "one_handed_mode_scale";
 
+    public static final String PREF_FLOATING_HEIGHT_PREFIX = "floating_height";
+    public static final String PREF_FLOATING_WIDTH_PREFIX = "floating_width";
+    public static final String PREF_FLOATING_ENABLED_PREFIX = "floating_enabled";
+    public static final String PREF_FLOATING_POS_X_PREFIX = "floating_pos_x";
+    public static final String PREF_FLOATING_POS_Y_PREFIX = "floating_pos_y";
+    // FrostKeys addition (not in upstream HeliBoard): auto-enable floating mode on landscape,
+    // meant for the gaming use case — keyboard doesn't eat the whole screen in landscape.
+    public static final String PREF_AUTO_FLOAT_LANDSCAPE = "auto_float_landscape";
+
     public static final String PREF_SHOW_NUMBER_ROW = "show_number_row";
     public static final String PREF_SHOW_NUMBER_ROW_IN_SYMBOLS = "show_number_row_in_symbols";
     public static final String PREF_LOCALIZED_NUMBER_ROW = "localized_number_row";
@@ -315,7 +324,8 @@ public final class Settings implements SharedPreferences.OnSharedPreferenceChang
 
     @Override
     public void onSharedPreferenceChanged(final SharedPreferences prefs, final String key) {
-        if (dontReloadOnChanged.contains(key) || (key != null && key.startsWith(PREF_SAVED_APP_SUBTYPE_PREFIX)))
+        if (dontReloadOnChanged.contains(key) || (key != null
+                && (key.startsWith(PREF_SAVED_APP_SUBTYPE_PREFIX) || key.startsWith(PREF_FLOATING_POS_X_PREFIX) || key.startsWith(PREF_FLOATING_POS_Y_PREFIX))))
             return;
         mSettingsValuesLock.lock();
         try {

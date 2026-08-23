@@ -147,6 +147,9 @@ public class SettingsValues {
     public final boolean mEmojiKeyFit;
     public final int mKeyboardCornerRadiusDp;
     public final PunctuationSuggestions mPunctuationSuggestions;
+    public final boolean mIsFloatingKeyboard;
+    public final int mFloatingWidth;
+    public final int mFloatingHeight;
 
     // From the input box
     @NonNull
@@ -270,7 +273,12 @@ public class SettingsValues {
         mSecondaryStripVisible = mToolbarMode != ToolbarMode.HIDDEN || ! mToolbarHidingGlobal;
         mIncognitoModeEnabled = prefs.getBoolean(Settings.PREF_ALWAYS_INCOGNITO_MODE, Defaults.PREF_ALWAYS_INCOGNITO_MODE) || mInputAttributes.mNoLearning
                 || mInputAttributes.mIsPasswordField;
-        mKeyboardHeightScale = Settings.readHeightScale(prefs, isLandscape, isFolded);
+        // manual toggle (persisted per screen width) OR auto-enabled on landscape for gaming (FrostKeys addition)
+        mIsFloatingKeyboard = SettingsKt.isFloatingKeyboardEnabled(context)
+                || (isLandscape && SettingsKt.isAutoFloatOnLandscapeEnabled(context) && !mHasHardwareKeyboard);
+        mFloatingWidth = SettingsKt.readFloatingWidth(context);
+        mFloatingHeight = SettingsKt.readFloatingHeight(context);
+        mKeyboardHeightScale = mIsFloatingKeyboard ? 1f : Settings.readHeightScale(prefs, isLandscape, isFolded);
         mBottomRowScale = Settings.readBottomRowScale(prefs, isLandscape, isFolded);
         mSpaceSwipeHorizontal = Settings.readHorizontalSpaceSwipe(prefs);
         mSpaceSwipeVertical = Settings.readVerticalSpaceSwipe(prefs);
@@ -289,7 +297,8 @@ public class SettingsValues {
         mClipboardHistoryRetentionTime = prefs.getInt(Settings.PREF_CLIPBOARD_HISTORY_RETENTION_TIME, Defaults.PREF_CLIPBOARD_HISTORY_RETENTION_TIME);
         mClipboardHistoryPinnedFirst = prefs.getBoolean(Settings.PREF_CLIPBOARD_HISTORY_PINNED_FIRST, Defaults.PREF_CLIPBOARD_HISTORY_PINNED_FIRST);
 
-        mOneHandedModeEnabled = Settings.readOneHandedModeEnabled(prefs, isLandscape, mIsSplitKeyboardEnabled, isFolded);
+        // floating and one-handed are mutually exclusive — same underlying mechanism (margin-based repositioning of the input view)
+        mOneHandedModeEnabled = !mIsFloatingKeyboard && Settings.readOneHandedModeEnabled(prefs, isLandscape, mIsSplitKeyboardEnabled, isFolded);
         mOneHandedModeGravity = Settings.readOneHandedModeGravity(prefs, isLandscape, mIsSplitKeyboardEnabled, isFolded);
         if (mOneHandedModeEnabled) {
             final float baseScale = res.getFraction(R.fraction.config_one_handed_mode_width, 1, 1);
