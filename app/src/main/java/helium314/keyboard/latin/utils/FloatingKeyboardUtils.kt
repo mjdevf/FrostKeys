@@ -60,6 +60,9 @@ object FloatingKeyboardUtils {
         view.findViewById<View>(R.id.float_handle_container)?.isVisible = true
         view.findViewById<ImageView>(R.id.drag_handle)?.setDragListener(view)
         view.findViewById<ImageView>(R.id.resize_handle)?.setResizeListener(lp)
+        // insets may have been applied before the floating state was known — re-run so the
+        // wrapper drops the nav bar bottom padding (see KeyboardWrapperView.onApplyWindowInsets)
+        view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
     }
 
     @JvmStatic
@@ -73,6 +76,8 @@ object FloatingKeyboardUtils {
         lp.leftMargin = 0
         lp.topMargin = 0
         view.findViewById<View>(R.id.float_handle_container)?.isGone = true
+        // restore the nav bar bottom padding that floating mode drops (docked keyboard needs it)
+        view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
     }
 
     @JvmStatic

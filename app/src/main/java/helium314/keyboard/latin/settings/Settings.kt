@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.provider.Settings.Global
 import androidx.core.content.edit
+import helium314.keyboard.latin.utils.ResourceUtils.getDefaultKeyboardHeight
 import helium314.keyboard.latin.utils.prefs
 import kotlinx.serialization.json.Json
 
@@ -44,13 +45,17 @@ fun setFloatingKeyboardEnabled(context: Context, enabled: Boolean) =
 fun readFloatingHeight(context: Context): Int {
     val screenWidth = context.resources.displayMetrics.widthPixels
     val key = Settings.PREF_FLOATING_HEIGHT_PREFIX + screenWidth
-    return context.prefs().getInt(key, context.resources.displayMetrics.heightPixels / 3)
+    // clamp to a usable minimum — sizes saved while dragging the resize handle (or while the
+    // layout was still broken) must not cram the 4 key rows into a sliver
+    val minHeight = (getDefaultKeyboardHeight(context.resources, false) * 0.55f).toInt()
+    return context.prefs().getInt(key, context.resources.displayMetrics.heightPixels / 3).coerceAtLeast(minHeight)
 }
 
 fun readFloatingWidth(context: Context): Int {
     val screenWidth = context.resources.displayMetrics.widthPixels
     val key = Settings.PREF_FLOATING_WIDTH_PREFIX + screenWidth
-    return context.prefs().getInt(key, screenWidth / 2)
+    val minWidth = (screenWidth * 0.3f).toInt()
+    return context.prefs().getInt(key, screenWidth / 2).coerceAtLeast(minWidth)
 }
 
 fun setFloatingSize(context: Context, width: Int, height: Int) {
