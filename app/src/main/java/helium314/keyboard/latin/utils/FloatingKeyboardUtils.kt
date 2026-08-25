@@ -227,7 +227,7 @@ object FloatingKeyboardUtils {
                         windowManager(view).updateViewLayout(view.rootView, decorLp)
                     }
                     // keep the panel visually where it was: it now sits at the window bottom
-                    baseTranslationY = y0 - (dm.heightPixels - view.height)
+                    baseTranslationY = (y0 - (dm.heightPixels - view.height)).toFloat()
                     view.rootView.translationX = x0.toFloat()
                     view.rootView.translationY = baseTranslationY
                     true
