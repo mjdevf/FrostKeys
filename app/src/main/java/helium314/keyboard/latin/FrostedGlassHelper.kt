@@ -195,6 +195,33 @@ object FrostedGlassHelper {
 
     private data class SemBlurMode(val name: String, val value: Int)
 
+    /**
+     * Temporarily hides the frosted window background while the floating keyboard is being
+     * dragged. During the drag the panel moves via view translation inside a temporarily
+     * full-screen transparent window (smooth, zero window updates), so the window background
+     * would stay behind at the old position — suppressing it lets the panel's own theme
+     * background show instead. Call again with [suppressed] = false to restore the frost.
+     */
+    @JvmStatic
+    fun setDragBackgroundSuppressed(inputView: View, suppressed: Boolean) {
+        val service = findInputMethodService(inputView.context) ?: return
+        val window = service.window?.window ?: return
+        if (suppressed) {
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        } else {
+            configureFrostedGlass(service, inputView, isFrostedTheme(service))
+        }
+    }
+
+    private fun findInputMethodService(context: Context): InputMethodService? {
+        var c: Context = context
+        while (c is android.content.ContextWrapper) {
+            if (c is InputMethodService) return c
+            c = c.baseContext ?: return null
+        }
+        return null
+    }
+
     @JvmStatic
     fun isFrostedTheme(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false

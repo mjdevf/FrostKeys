@@ -1,0 +1,15 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<!-- Quarter-circle corner bracket for the floating keyboard resize handles (Gboard-style).
+     Drawn for the top-left corner; other corners rotate the ImageView. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M4,20 A16,16 0 0 1 20,4"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+</vector>

@@ -105,24 +105,49 @@
 
     </helium314.keyboard.latin.KeyboardWrapperView>
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/float_handle_container"
-        android:orientation="horizontal"
         android:visibility="gone"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-        <ImageView
-            android:id="@+id/resize_handle"
-            android:layout_weight="1"
-            android:layout_width="wrap_content"
-            android:layout_height="@dimen/config_floating_handle_height"
-            android:src="@drawable/ic_arrow_horizontal"/>
+        android:layout_height="@dimen/config_floating_handle_height">
+
+        <!-- Gboard-style bottom drag pill -->
         <ImageView
             android:id="@+id/drag_handle"
-            android:layout_weight="1"
             android:layout_width="wrap_content"
-            android:layout_height="@dimen/config_floating_handle_height"
-            android:src="@drawable/ic_drag_indicator"/>
-    </LinearLayout>
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_floating_pill"
+            android:contentDescription="@string/label_stop_onehanded_mode_key" />
+
+        <!-- Gboard-style corner resize handles -->
+        <ImageView
+            android:id="@+id/resize_handle_bl"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="bottom|start"
+            android:padding="3dp"
+            android:scaleType="fitXY"
+            android:rotation="270"
+            android:src="@drawable/ic_floating_corner"
+            android:contentDescription="@string/label_resize_onehanded_key" />
+
+        <ImageView
+            android:id="@+id/resize_handle_br"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="bottom|end"
+            android:padding="3dp"
+            android:scaleType="fitXY"
+            android:rotation="180"
+            android:src="@drawable/ic_floating_corner"
+            android:contentDescription="@string/label_resize_onehanded_key" />
+
+    </FrameLayout>
 
 </helium314.keyboard.latin.RoundedKeyboardFrameView>

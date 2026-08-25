@@ -17,4 +17,30 @@
     <include
         android:id="@+id/main_keyboard_frame"
         layout="@layout/main_keyboard_frame" />
+
+    <!-- Gboard-style top corner resize handles (floating mode only — visibility is
+         toggled from FloatingKeyboardUtils; in floating mode the InputView spans
+         exactly the floating panel, so top|start / top|end land on the panel corners) -->
+    <ImageView
+        android:id="@+id/resize_handle_tl"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|start"
+        android:padding="3dp"
+        android:scaleType="fitXY"
+        android:src="@drawable/ic_floating_corner"
+        android:visibility="gone"
+        android:contentDescription="@string/label_resize_onehanded_key" />
+
+    <ImageView
+        android:id="@+id/resize_handle_tr"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_gravity="top|end"
+        android:padding="3dp"
+        android:scaleType="fitXY"
+        android:rotation="90"
+        android:src="@drawable/ic_floating_corner"
+        android:visibility="gone"
+        android:contentDescription="@string/label_resize_onehanded_key" />
 </helium314.keyboard.latin.InputView>

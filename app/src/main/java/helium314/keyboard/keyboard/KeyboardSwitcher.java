@@ -1900,7 +1900,8 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
                 || (mClipboardHistoryView != null && mClipboardHistoryView.getVisibility() == View.VISIBLE)
                 || (mAiWritingToolsView != null && mAiWritingToolsView.getVisibility() == View.VISIBLE)
                 || (mKlipyPalettesView != null && mKlipyPalettesView.getVisibility() == View.VISIBLE);
-        if (!enabled || mMainKeyboardFrame == null || mMainKeyboardFrame.getVisibility() != View.VISIBLE) {
+        // Gboard-style floating: no persistent emoji row above the floating panel
+        if (!enabled || Settings.getValues().mIsFloatingKeyboard || mMainKeyboardFrame == null || mMainKeyboardFrame.getVisibility() != View.VISIBLE) {
             mPersistentEmojiRowScroll.setVisibility(View.GONE);
             if (divider != null)
                 divider.setVisibility(View.GONE);
