@@ -1676,17 +1676,18 @@ public class LatinIME extends InputMethodService implements
             final SettingsValues sv = Settings.getValues();
             final int extraHeight = (mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0)
                     + (int) FloatingKeyboardUtils.getFloatingHandleHeight(getResources());
-            final android.graphics.Rect windowFrame = new android.graphics.Rect();
-            mInputView.getWindowVisibleDisplayFrame(windowFrame);
+            // No clamping here (upstream passes MAX_VALUE too): clamping against transient window
+            // sizes (e.g. mid-rotation) would permanently corrupt the saved floating position.
             final Pair<Integer, Integer> xy = FloatingKeyboardUtils.readPosition(this,
-                    windowFrame.right - windowFrame.left - sv.mFloatingWidth,
-                    windowFrame.bottom - windowFrame.top - extraHeight - sv.mFloatingHeight);
+                    Integer.MAX_VALUE, Integer.MAX_VALUE);
             final int touchLeft = xy.getFirst();
             final int touchTop = xy.getSecond();
             final int touchRight = touchLeft + sv.mFloatingWidth;
             final int touchBottom = touchTop + sv.mFloatingHeight + extraHeight;
-            outInsets.contentTopInsets = touchTop;
-            outInsets.visibleTopInsets = touchTop;
+            // Don't report the empty area above the floating keyboard as content/visible top —
+            // upstream (GH-702, GH-1455) found that makes apps pan as if the keyboard were docked.
+            outInsets.contentTopInsets = getResources().getDisplayMetrics().heightPixels;
+            outInsets.visibleTopInsets = getResources().getDisplayMetrics().heightPixels;
             outInsets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION;
             outInsets.touchableRegion.set(touchLeft, touchTop, touchRight, touchBottom);
             if (mInsetsUpdater != null) mInsetsUpdater.setInsets(outInsets);

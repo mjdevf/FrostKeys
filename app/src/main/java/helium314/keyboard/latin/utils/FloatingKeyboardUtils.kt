@@ -43,11 +43,15 @@ object FloatingKeyboardUtils {
         val lp = view?.layoutParams as? ViewGroup.MarginLayoutParams ?: return
         view.getWindowVisibleDisplayFrame(windowFrame)
         extraHeight = getSuggestionStripHeight(view.resources) + getFloatingHandleHeight(view.resources)
-        val (x, y) = readPosition(
-            view.context,
-            windowFrame.right - windowFrame.left - Settings.getValues().mFloatingWidth,
-            windowFrame.bottom - windowFrame.top - extraHeight.toInt() - Settings.getValues().mFloatingHeight
-        )
+        val maxX = (windowFrame.right - windowFrame.left - Settings.getValues().mFloatingWidth).coerceAtLeast(0)
+        val maxY = (windowFrame.bottom - windowFrame.top - extraHeight.toInt() - Settings.getValues().mFloatingHeight).coerceAtLeast(0)
+        // center the keyboard by default (Gboard-style floating) until the user drags it somewhere else;
+        // persist immediately so the insets computation (which reads without bounds) sees the same position
+        val (x, y) = if (hasSavedPosition(view.context)) readPosition(view.context, maxX, maxY) else {
+            val centered = maxX / 2 to maxY / 2
+            savePosition(view.context, centered.first, centered.second)
+            centered
+        }
         if (DebugFlags.DEBUG_ENABLED)
             Log.d(TAG, "place floating view at $x, $y, width ${Settings.getValues().mFloatingWidth}, height ${Settings.getValues().mFloatingHeight}")
         ViewLayoutUtils.placeViewAt(view, x, y, Settings.getValues().mFloatingWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -83,6 +87,11 @@ object FloatingKeyboardUtils {
         if (x > maxX || y > maxY)
             savePosition(context, maxX.coerceAtLeast(0), maxY.coerceAtLeast(0))
         return x.coerceIn(0, maxX.coerceAtLeast(0)) to y.coerceIn(0, maxY.coerceAtLeast(0))
+    }
+
+    private fun hasSavedPosition(context: Context): Boolean {
+        val width = context.resources.displayMetrics.widthPixels
+        return context.prefs().contains(Settings.PREF_FLOATING_POS_X_PREFIX + width)
     }
 
     private fun savePosition(context: Context, x: Int, y: Int) {
