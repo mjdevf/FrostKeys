@@ -208,6 +208,10 @@ object FrostedGlassHelper {
         val window = service.window?.window ?: return
         if (suppressed) {
             window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            // the blur follows the window bounds via this attribute and is independent of the
+            // background drawable — while dragging/resizing the window is (temporarily) expanded,
+            // so a live blur here would paint a full-screen blur band behind the panel
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) window.setBackgroundBlurRadius(0)
         } else {
             configureFrostedGlass(service, inputView, isFrostedTheme(service))
         }

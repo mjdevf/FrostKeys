@@ -1453,8 +1453,13 @@ public class LatinIME extends InputMethodService implements
         super.onWindowShown();
         mLifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME);
         if (isInputViewShown()) {
-            if (mInputView != null && Settings.getValues().mIsFloatingKeyboard)
-                FloatingKeyboardUtils.setFloating(mInputView);
+            // enforce both directions — e.g. returning to portrait after auto-float landscape
+            if (mInputView != null) {
+                if (Settings.getValues().mIsFloatingKeyboard)
+                    FloatingKeyboardUtils.setFloating(mInputView);
+                else
+                    FloatingKeyboardUtils.disableFloating(mInputView);
+            }
             setNavigationBarColor();
             workaroundForHuaweiStatusBarIssue();
             FrostedGlassHelper.configureFrostedGlass(this, mInputView, FrostedGlassHelper.isFrostedTheme(this));

@@ -292,6 +292,9 @@ object FloatingKeyboardUtils {
                     curY = y0
                     curW = w0
                     curH = h0
+                    // every window size change would re-render the blur behind it — suppress
+                    // it for the gesture (same tradeoff as dragging), restore on release
+                    FrostedGlassHelper.setDragBackgroundSuppressed(view, true)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -327,6 +330,7 @@ object FloatingKeyboardUtils {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     setFloatingSize(context, curW, curH)
                     KeyboardSwitcher.getInstance().reloadKeyboard()
+                    FrostedGlassHelper.setDragBackgroundSuppressed(view, false)
                     true
                 }
                 else -> false

@@ -147,6 +147,8 @@ public final class InputView extends FrameLayout {
         // need to update the floating keyboard position after applying insets
         if (Settings.getValues().mIsFloatingKeyboard)
             FloatingKeyboardUtils.setFloating(this);
+        else
+            FloatingKeyboardUtils.disableFloating(this);
         return null;
     }
 

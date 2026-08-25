@@ -54,6 +54,7 @@ import helium314.keyboard.latin.InputView;
 import helium314.keyboard.latin.KeyboardWrapperView;
 import helium314.keyboard.latin.LatinIME;
 import helium314.keyboard.latin.R;
+import helium314.keyboard.latin.utils.FloatingKeyboardUtils;
 import helium314.keyboard.latin.RichInputMethodManager;
 import helium314.keyboard.latin.RichInputMethodSubtype;
 import helium314.keyboard.latin.WordComposer;
@@ -250,6 +251,15 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
             } catch (KeyboardLayoutSetException e2) {
                 Log.e(TAG, "even fallback to defaults failed: " + e2.mKeyboardId, e2.getCause());
             }
+        }
+        // Floating state can flip on any keyboard load (e.g. rotating back to portrait with
+        // auto-float-landscape enabled) — enforce it here so every load path (this is the
+        // central one) ends with the window geometry matching the current state.
+        if (mCurrentInputView != null) {
+            if (settingsValues.mIsFloatingKeyboard)
+                FloatingKeyboardUtils.setFloating(mCurrentInputView);
+            else
+                FloatingKeyboardUtils.disableFloating(mCurrentInputView);
         }
     }
 
