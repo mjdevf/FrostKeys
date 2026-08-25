@@ -394,6 +394,10 @@ object FrostedGlassHelper {
 
     private fun constrainImeWindowToKeyboardBounds(service: InputMethodService, window: Window, inputView: View?) {
         service.updateSoftInputWindowLayoutParameters(inputView, true)
+        // Floating mode: FloatingKeyboardUtils owns the window geometry (panel-sized, freely
+        // placed via WindowManager) — forcing MATCH_PARENT/BOTTOM here would fight it and
+        // stretch the frosted blur back into a full-width band.
+        if (Settings.getValues()?.mIsFloatingKeyboard == true) return
 
         val params = window.attributes
         var changed = false

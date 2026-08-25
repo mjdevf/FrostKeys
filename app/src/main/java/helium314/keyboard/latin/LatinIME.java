@@ -1670,26 +1670,18 @@ public class LatinIME extends InputMethodService implements
         if (mInputView == null) return;
 
         if (Settings.getValues().mIsFloatingKeyboard) {
-            // Floating mode: the touchable area is a small rectangle placed anywhere on screen,
-            // not the usual full-width band FrostKeys computes below via TOUCHABLE_INSETS_CONTENT.
-            // Same approach as upstream HeliBoard's floating keyboard implementation.
+            // Floating mode: the IME window itself IS the floating panel (positioned by
+            // FloatingKeyboardUtils), so the whole window is the keyboard — a simple
+            // window-relative region covers it exactly.
             final SettingsValues sv = Settings.getValues();
             final int extraHeight = (mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0)
                     + (int) FloatingKeyboardUtils.getFloatingHandleHeight(getResources());
-            // No clamping here (upstream passes MAX_VALUE too): clamping against transient window
-            // sizes (e.g. mid-rotation) would permanently corrupt the saved floating position.
-            final Pair<Integer, Integer> xy = FloatingKeyboardUtils.readPosition(this,
-                    Integer.MAX_VALUE, Integer.MAX_VALUE);
-            final int touchLeft = xy.getFirst();
-            final int touchTop = xy.getSecond();
-            final int touchRight = touchLeft + sv.mFloatingWidth;
-            final int touchBottom = touchTop + sv.mFloatingHeight + extraHeight;
             // Don't report the empty area above the floating keyboard as content/visible top —
             // upstream (GH-702, GH-1455) found that makes apps pan as if the keyboard were docked.
             outInsets.contentTopInsets = getResources().getDisplayMetrics().heightPixels;
             outInsets.visibleTopInsets = getResources().getDisplayMetrics().heightPixels;
             outInsets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION;
-            outInsets.touchableRegion.set(touchLeft, touchTop, touchRight, touchBottom);
+            outInsets.touchableRegion.set(0, 0, sv.mFloatingWidth, sv.mFloatingHeight + extraHeight);
             if (mInsetsUpdater != null) mInsetsUpdater.setInsets(outInsets);
             return;
         }

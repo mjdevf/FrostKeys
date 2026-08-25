@@ -4,11 +4,13 @@ package helium314.keyboard.latin.utils
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
-import android.graphics.Rect
+import android.os.SystemClock
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.ImageView
 import androidx.core.content.edit
 import androidx.core.view.isGone
@@ -22,44 +24,45 @@ import helium314.keyboard.latin.settings.setFloatingSize
 /**
  * Handles positioning, dragging and resizing of the keyboard when floating mode is active.
  *
- * Ported from upstream HeliBoard (Helium314/HeliBoard, PR #2501 "Add floating keyboard",
- * plus follow-up fixes "allow null view in FloatingUtils" and
- * "improve floating keyboard placement"), adapted to FrostKeys.
- *
- * Important: this does NOT create a new Android window (no SYSTEM_ALERT_WINDOW,
- * no WindowManager.addView, no TYPE_APPLICATION_OVERLAY). It repositions the existing
- * IME input view inside the IME's own window using MarginLayoutParams — the same basic
- * trick already used by one-handed mode in KeyboardWrapperView, just generalized to
- * free X/Y drag + resize instead of edge-snap + scale.
+ * Originally ported from upstream HeliBoard (Helium314/HeliBoard, PR #2501 "Add floating keyboard"),
+ * then reworked to window-based positioning (Gboard-style): the IME window itself is resized to the
+ * floating panel and moved via WindowManager. Compared to the old margin-based approach this gives
+ * free full-screen dragging, a frosted-glass blur that covers exactly the panel (the blur follows
+ * the window background), a touch region that always matches the visible panel, and cheap drags
+ * (a window update instead of a view-tree relayout).
  */
-// todo: add a frame around the keyboard (because other people care more about optics than I do)
 object FloatingKeyboardUtils {
     private val TAG = this::class.java.simpleName
-    private val windowFrame = Rect()
     private var extraHeight = 0f
+
+    private const val RESIZE_RELOAD_INTERVAL_MS = 120L
 
     @JvmStatic
     fun setFloating(view: View?) {
-        val lp = view?.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        view.getWindowVisibleDisplayFrame(windowFrame)
+        if (view == null) return
+        val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams ?: return
+        val sv = Settings.getValues()
+        val dm = view.resources.displayMetrics
         extraHeight = getSuggestionStripHeight(view.resources) + getFloatingHandleHeight(view.resources)
-        val maxX = (windowFrame.right - windowFrame.left - Settings.getValues().mFloatingWidth).coerceAtLeast(0)
-        val maxY = (windowFrame.bottom - windowFrame.top - extraHeight.toInt() - Settings.getValues().mFloatingHeight).coerceAtLeast(0)
-        // center the keyboard by default (Gboard-style floating) until the user drags it somewhere else;
-        // persist immediately so the insets computation (which reads without bounds) sees the same position
+        // full-screen bounds — the panel may go anywhere on screen (Gboard-style), not only
+        // into the region above the docked keyboard position
+        val maxX = (dm.widthPixels - sv.mFloatingWidth).coerceAtLeast(0)
+        val maxY = (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight).coerceAtLeast(0)
+        // center the keyboard by default until the user drags it somewhere else;
+        // persist immediately so the insets computation (which reads without bounds) agrees
         val (x, y) = if (hasSavedPosition(view.context)) readPosition(view.context, maxX, maxY) else {
             val centered = maxX / 2 to maxY / 2
             savePosition(view.context, centered.first, centered.second)
             centered
         }
         if (DebugFlags.DEBUG_ENABLED)
-            Log.d(TAG, "place floating view at $x, $y, width ${Settings.getValues().mFloatingWidth}, height ${Settings.getValues().mFloatingHeight}")
-        ViewLayoutUtils.placeViewAt(view, x, y, Settings.getValues().mFloatingWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+            Log.d(TAG, "place floating window at $x, $y, width ${sv.mFloatingWidth}, height ${sv.mFloatingHeight}")
+        applyFloatingWindowGeometry(view, decorLp, x, y, sv.mFloatingWidth)
         if (view.findViewById<View>(R.id.float_handle_container)?.isVisible == true)
             return
         view.findViewById<View>(R.id.float_handle_container)?.isVisible = true
         view.findViewById<ImageView>(R.id.drag_handle)?.setDragListener(view)
-        view.findViewById<ImageView>(R.id.resize_handle)?.setResizeListener(lp)
+        view.findViewById<ImageView>(R.id.resize_handle)?.setResizeListener(view)
         // insets may have been applied before the floating state was known — re-run so the
         // wrapper drops the nav bar bottom padding (see KeyboardWrapperView.onApplyWindowInsets)
         view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
@@ -67,18 +70,52 @@ object FloatingKeyboardUtils {
 
     @JvmStatic
     fun disableFloating(view: View?) {
-        val lp = view?.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        if (lp.width == ViewGroup.LayoutParams.MATCH_PARENT) return // not floating
+        if (view == null) return
+        val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams
+        if (decorLp != null && decorLp.width != ViewGroup.LayoutParams.MATCH_PARENT) {
+            // restore the full-width docked window geometry
+            decorLp.gravity = Gravity.BOTTOM
+            decorLp.x = 0
+            decorLp.y = 0
+            decorLp.width = ViewGroup.LayoutParams.MATCH_PARENT
+            decorLp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+            windowManager(view).updateViewLayout(view.rootView, decorLp)
+        }
         if (DebugFlags.DEBUG_ENABLED)
             Log.d(TAG, "disable floating view")
+        val lp = view.layoutParams as? ViewGroup.MarginLayoutParams ?: return
         lp.width = ViewGroup.LayoutParams.MATCH_PARENT
         lp.height = ViewGroup.LayoutParams.MATCH_PARENT
         lp.leftMargin = 0
         lp.topMargin = 0
+        view.requestLayout()
         view.findViewById<View>(R.id.float_handle_container)?.isGone = true
         // restore the nav bar bottom padding that floating mode drops (docked keyboard needs it)
         view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
     }
+
+    private fun applyFloatingWindowGeometry(view: View, decorLp: WindowManager.LayoutParams, x: Int, y: Int, width: Int) {
+        if (decorLp.gravity == (Gravity.TOP or Gravity.START)
+                && decorLp.x == x && decorLp.y == y && decorLp.width == width)
+            return // already in place — avoid relayout churn from repeated setFloating calls
+        decorLp.gravity = Gravity.TOP or Gravity.START
+        decorLp.x = x
+        decorLp.y = y
+        decorLp.width = width
+        decorLp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+        windowManager(view).updateViewLayout(view.rootView, decorLp)
+    }
+
+    private fun updateWindowPosition(view: View, x: Int, y: Int) {
+        val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams ?: return
+        if (decorLp.x == x && decorLp.y == y) return
+        decorLp.x = x
+        decorLp.y = y
+        windowManager(view).updateViewLayout(view.rootView, decorLp)
+    }
+
+    private fun windowManager(view: View) =
+        view.context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     @JvmStatic
     fun getFloatingHandleHeight(resources: Resources) = resources.getDimension(R.dimen.config_floating_handle_height)
@@ -115,30 +152,34 @@ object FloatingKeyboardUtils {
     private fun View.setDragListener(view: View) {
         var startX = 0f
         var startY = 0f
-        val lp = view.layoutParams as ViewGroup.MarginLayoutParams
-        var positionX = lp.leftMargin.toFloat()
-        var positionY = lp.topMargin.toFloat()
+        var positionX = 0
+        var positionY = 0
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX
                     startY = event.rawY
+                    (view.rootView.layoutParams as? WindowManager.LayoutParams)?.let {
+                        positionX = it.x
+                        positionY = it.y
+                    }
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - startX
-                    val dy = event.rawY - startY
+                    val sv = Settings.getValues()
+                    val dm = context.resources.displayMetrics
+                    positionX = (positionX + (event.rawX - startX)).toInt()
+                        .coerceIn(0, (dm.widthPixels - sv.mFloatingWidth).coerceAtLeast(0))
+                    positionY = (positionY + (event.rawY - startY)).toInt()
+                        .coerceIn(0, (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight).coerceAtLeast(0))
                     startX = event.rawX
                     startY = event.rawY
-                    val sv = Settings.getValues()
-                    val availableWidth = windowFrame.right - windowFrame.left
-                    val availableHeight = windowFrame.bottom - windowFrame.top
-                    positionX = (positionX + dx).coerceIn(0f, (availableWidth - sv.mFloatingWidth).toFloat())
-                    positionY = (positionY + dy).coerceIn(0f, availableHeight - extraHeight - sv.mFloatingHeight)
-                    lp.leftMargin = positionX.toInt()
-                    lp.topMargin = positionY.toInt()
-                    savePosition(context, lp.leftMargin, lp.topMargin)
-                    view.layoutParams = lp // to update immediately
+                    updateWindowPosition(view, positionX, positionY)
+                    true
+                }
+                // persist only at gesture end — a prefs write per move event causes drag lag
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    savePosition(context, positionX, positionY)
                     true
                 }
                 else -> false
@@ -147,38 +188,62 @@ object FloatingKeyboardUtils {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun View.setResizeListener(lp: ViewGroup.MarginLayoutParams) {
+    private fun View.setResizeListener(view: View) {
         var startX = 0f
         var startY = 0f
+        var currentWidth = 0
+        var currentHeight = 0
+        var lastReload = 0L
         val scale = 3 / context.resources.displayMetrics.density
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX
                     startY = event.rawY
+                    val sv = Settings.getValues()
+                    currentWidth = sv.mFloatingWidth
+                    currentHeight = sv.mFloatingHeight
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - startX
-                    val dy = event.rawY - startY
+                    val sv = Settings.getValues()
+                    val dm = context.resources.displayMetrics
+                    val maxWidth = ((dm.widthPixels - decorX(view)) * 0.9f).toInt()
+                    val maxHeight = ((dm.heightPixels - decorY(view) - extraHeight.toInt()) * 0.9f).toInt()
+                    currentWidth = (currentWidth + (event.rawX - startX) / scale).toInt().coerceIn(150, maxWidth)
+                    currentHeight = (currentHeight + (event.rawY - startY) / scale).toInt().coerceIn(100, maxHeight)
                     startX = event.rawX
                     startY = event.rawY
-                    val availableWidth = windowFrame.right - windowFrame.left
-                    val availableHeight = windowFrame.bottom - windowFrame.top
-                    val maxWidth = (availableWidth * 0.9f).toInt()
-                    val maxHeight = (availableHeight * 0.9f).toInt()
-                    // avoid setting window outside windowFrame, view behaves strange otherwise
-                    val newWidth = (Settings.getValues().mFloatingWidth + dx / scale).toInt().coerceIn(150, maxWidth)
-                        .coerceAtMost(availableWidth - lp.leftMargin)
-                    val newHeight = (Settings.getValues().mFloatingHeight + dy / scale).toInt().coerceIn(100, maxHeight)
-                        .coerceAtMost(availableHeight - extraHeight.toInt() - lp.topMargin)
-                    setFloatingSize(context, newWidth, newHeight)
+                    if (currentWidth == sv.mFloatingWidth && currentHeight == sv.mFloatingHeight)
+                        return@setOnTouchListener true
+                    // persist size (cheap memory write) so reloadKeyboard picks the new geometry up
+                    setFloatingSize(context, currentWidth, currentHeight)
+                    // live width preview on the window; full keyboard rebuild is throttled
+                    val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams
+                    if (decorLp != null && decorLp.width != currentWidth) {
+                        decorLp.width = currentWidth
+                        windowManager(view).updateViewLayout(view.rootView, decorLp)
+                    }
+                    if (SystemClock.uptimeMillis() - lastReload > RESIZE_RELOAD_INTERVAL_MS) {
+                        lastReload = SystemClock.uptimeMillis()
+                        KeyboardSwitcher.getInstance().reloadKeyboard()
+                    }
+                    true
+                }
+                // final rebuild with the exact final size
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    setFloatingSize(context, currentWidth, currentHeight)
                     KeyboardSwitcher.getInstance().reloadKeyboard()
-                    // updating window is done in setFloating, called by reloadKeyboard
                     true
                 }
                 else -> false
             }
         }
     }
+
+    private fun decorX(view: View) =
+        (view.rootView.layoutParams as? WindowManager.LayoutParams)?.x ?: 0
+
+    private fun decorY(view: View) =
+        (view.rootView.layoutParams as? WindowManager.LayoutParams)?.y ?: 0
 }

@@ -45,16 +45,16 @@ fun setFloatingKeyboardEnabled(context: Context, enabled: Boolean) =
 fun readFloatingHeight(context: Context): Int {
     val screenWidth = context.resources.displayMetrics.widthPixels
     val key = Settings.PREF_FLOATING_HEIGHT_PREFIX + screenWidth
-    // clamp to a usable minimum — sizes saved while dragging the resize handle (or while the
-    // layout was still broken) must not cram the 4 key rows into a sliver
-    val minHeight = (getDefaultKeyboardHeight(context.resources, false) * 0.55f).toInt()
+    // clamp to a usable minimum — sizes saved while dragging the resize handle must not cram
+    // the 4 key rows into a sliver, but stay small enough for the gaming use case
+    val minHeight = (getDefaultKeyboardHeight(context.resources, false) * 0.4f).toInt()
     return context.prefs().getInt(key, context.resources.displayMetrics.heightPixels / 3).coerceAtLeast(minHeight)
 }
 
 fun readFloatingWidth(context: Context): Int {
     val screenWidth = context.resources.displayMetrics.widthPixels
     val key = Settings.PREF_FLOATING_WIDTH_PREFIX + screenWidth
-    val minWidth = (screenWidth * 0.3f).toInt()
+    val minWidth = (screenWidth * 0.25f).toInt()
     return context.prefs().getInt(key, screenWidth / 2).coerceAtLeast(minWidth)
 }
 
