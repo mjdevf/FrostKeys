@@ -28,7 +28,6 @@ plugins {
     kotlin("android")
     kotlin("plugin.serialization") version "2.3.20"
     kotlin("plugin.compose") version "2.3.20"
-    id("androidx.benchmark")
 }
 
 android {
@@ -91,28 +90,6 @@ android {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["stickerProviderAuthority"] = "${defaultConfig.applicationId}.debug.stickercontentprovider"
         }
-        // Benchmark build type
-        create("benchmark") {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            isDebuggable = false
-            isJniDebuggable = false
-            matchingFallbacks = listOf("release")
-            matchingFallbacks += listOf("nouserlib")
-            manifestPlaceholders["stickerProviderAuthority"] = "${defaultConfig.applicationId}.stickercontentprovider"
-            // Benchmark test instrumentation
-            testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
-            testInstrumentationRunnerArguments["androidx.benchmark.dryRunMode.enable"] = "false"
-            testInstrumentationRunnerArguments["androidx.benchmark.iterations"] = "10"
-            testInstrumentationRunnerArguments["androidx.benchmark.output.enable"] = "true"
-            // Benchmark plugin configuration
-            benchmark {
-                instrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
-                dryRunMode.enable = false
-                iterations = 10
-                output.enable = true
-            }
-        }
 
         androidComponents.onVariants { variant: ApplicationVariant ->
             if (variant.buildType == "debug") {
@@ -165,12 +142,6 @@ android {
         unitTests {
             isIncludeAndroidResources = true
         }
-    }
-
-    // Benchmark configuration
-    testOptions {
-        execution = "ANDROIDX_TEST_ORCHESTRATOR"
-        animationsDisabled = true
     }
 
     compileOptions {
@@ -227,10 +198,6 @@ dependencies {
     implementation("io.coil-kt:coil-gif:2.7.0")
     implementation("com.aureusapps.android:webp-android:1.1.2")
     implementation("dev.chrisbanes.haze:haze:0.7.3")
-
-    // benchmark
-    implementation("androidx.benchmark:benchmark-macro-junit4:1.3.0")
-    implementation("androidx.benchmark:benchmark-junit4:1.3.0")
 
     // test
     testImplementation(kotlin("test"))

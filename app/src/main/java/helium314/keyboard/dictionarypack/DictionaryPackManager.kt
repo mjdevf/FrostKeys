@@ -197,7 +197,7 @@ class DictionaryPackManager(private val context: Context) {
 
     fun shutdown() {
         downloadScope.cancel()
-        client.dispatcher().executorService?.shutdown()
+        client.dispatcher.executorService.shutdown()
     }
 }
 

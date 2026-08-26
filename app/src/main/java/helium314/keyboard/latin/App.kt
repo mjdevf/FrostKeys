@@ -30,8 +30,7 @@ class App : Application() {
                     .penaltyLog()
                     .build()
             )
-            // Install LeakCanary for memory leak detection
-            com.squareup.leakcanary.LeakCanary.install(this)
+            // LeakCanary auto-installs via ContentProvider when the debug dependency is present
         }
         DebugFlags.init(this)
         FoldableUtils.init(this)

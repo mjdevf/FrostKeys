@@ -12,31 +12,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
-import androidx.compose.ui.unit.sp
 import helium314.keyboard.compat.locale
 import helium314.keyboard.latin.dictionary.Dictionary
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.common.LocaleUtils.localizedDisplayName
-import helium314.keyboard.latin.common.Links
 import helium314.keyboard.latin.utils.DictionaryInfoUtils
 import helium314.keyboard.latin.utils.DictionaryUtils
-import helium314.keyboard.latin.utils.createDictionaryTextAnnotated
 import helium314.keyboard.latin.utils.DeleteButton
 import helium314.keyboard.latin.utils.ExpandButton
 import helium314.keyboard.latin.utils.Theme
@@ -90,13 +87,7 @@ fun DictionaryDialog(
     }
 
     ThreeButtonAlertDialog(
-        onDismissRequest = {
-            packManager.removeProgressListener { localeStr, dictType, progress, status ->
-                // This is just to remove the listener; the actual listener is removed by LaunchedEffect disposal
-            }
-            packManager.shutdown()
-            onDismissRequest()
-        },
+        onDismissRequest = onDismissRequest,
         onConfirmed = {},
         confirmButtonText = null,
         cancelButtonText = stringResource(R.string.dialog_close),
@@ -157,19 +148,12 @@ fun DictionaryDialog(
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     if (isDownloading) {
-                                        androidx.compose.foundation.layout.Box(
+                                        LinearProgressIndicator(
+                                            progress = { progress },
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(4.dp)
                                                 .padding(top = 4.dp)
-                                        ) {
-                                            androidx.compose.foundation.layout.Box(
-                                                modifier = Modifier
-                                                    .width(progress * 1f)
-                                                    .fillMaxHeight()
-                                                    .background(MaterialTheme.colorScheme.primary)
-                                            )
-                                        }
+                                        )
                                     }
                                 }
                                 if (!isDownloading && mainDict == null) {
