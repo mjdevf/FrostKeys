@@ -6,6 +6,7 @@ import kotlinx.coroutines.*
 import java.io.File
 import java.io.FileOutputStream
 import helium314.keyboard.latin.common.Links
+import helium314.keyboard.latin.utils.DictionaryInfoUtils
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
