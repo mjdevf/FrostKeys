@@ -56,11 +56,6 @@ android {
             }
         }
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-        // Benchmark test instrumentation
-        testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
-        testInstrumentationRunnerArguments["androidx.benchmark.dryRunMode.enable"] = "false"
-        testInstrumentationRunnerArguments["androidx.benchmark.iterations"] = "10"
-        testInstrumentationRunnerArguments["androidx.benchmark.output.enable"] = "true"
     }
 
     buildTypes {
@@ -105,6 +100,11 @@ android {
             matchingFallbacks = listOf("release")
             matchingFallbacks += listOf("nouserlib")
             manifestPlaceholders["stickerProviderAuthority"] = "${defaultConfig.applicationId}.stickercontentprovider"
+            // Benchmark test instrumentation
+            testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+            testInstrumentationRunnerArguments["androidx.benchmark.dryRunMode.enable"] = "false"
+            testInstrumentationRunnerArguments["androidx.benchmark.iterations"] = "10"
+            testInstrumentationRunnerArguments["androidx.benchmark.output.enable"] = "true"
             // Benchmark plugin configuration
             benchmark {
                 instrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"

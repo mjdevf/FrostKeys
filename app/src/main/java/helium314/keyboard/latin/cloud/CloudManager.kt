@@ -23,18 +23,31 @@ object CloudManager {
     private const val CONNECTION_POOL_KEEP_ALIVE_MS = 5 * 60 * 1000L // 5 minutes
     private const val CALL_TIMEOUT_MS = 30 * 1000L // 30 seconds
 
-    private val client by lazy {
-        OkHttpClient.Builder()
-            .cache(Cache(context.cacheDir.resolve("okhttp_cache").toFile(), CACHE_SIZE))
-            .connectionPool(ConnectionPool(CONNECTION_POOL_MAX_IDLE, CONNECTION_POOL_KEEP_ALIVE_MS, TimeUnit.MILLISECONDS))
-            .callTimeout(CALL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            .build()
-    }
+    private var clientInstance: OkHttpClient? = null
+    private var clientCacheDir: java.io.File? = null
 
-    private lateinit var context: Context
+    private val client: OkHttpClient
+        get() {
+            if (clientInstance == null) {
+                synchronized(this) {
+                    if (clientInstance == null) {
+                        val cacheDir = clientCacheDir ?: return OkHttpClient.Builder()
+                            .connectionPool(ConnectionPool(CONNECTION_POOL_MAX_IDLE, CONNECTION_POOL_KEEP_ALIVE_MS, TimeUnit.MILLISECONDS))
+                            .callTimeout(CALL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                            .build()
+                        clientInstance = OkHttpClient.Builder()
+                            .cache(Cache(cacheDir, CACHE_SIZE))
+                            .connectionPool(ConnectionPool(CONNECTION_POOL_MAX_IDLE, CONNECTION_POOL_KEEP_ALIVE_MS, TimeUnit.MILLISECONDS))
+                            .callTimeout(CALL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                            .build()
+                    }
+                }
+            }
+            return clientInstance!!
+        }
 
     fun init(appContext: Context) {
-        context = appContext.applicationContext
+        clientCacheDir = appContext.applicationContext.cacheDir.resolve("okhttp_cache").toFile()
     }
 
     enum class CloudFeature {
