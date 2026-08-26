@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.StrictMode
 import helium314.keyboard.keyboard.emoji.SupportedEmojis
 import helium314.keyboard.keyboard.internal.GeminiService
+import helium314.keyboard.latin.cloud.CloudManager
 import helium314.keyboard.latin.define.DebugFlags
 import helium314.keyboard.latin.settings.Defaults
 import helium314.keyboard.latin.settings.Settings
@@ -29,11 +30,14 @@ class App : Application() {
                     .penaltyLog()
                     .build()
             )
+            // Install LeakCanary for memory leak detection
+            com.squareup.leakcanary.LeakCanary.install(this)
         }
         DebugFlags.init(this)
         FoldableUtils.init(this)
         Settings.init(this)
         SubtypeSettings.init(this)
+        CloudManager.init(this)
 
         val scope = CoroutineScope(Dispatchers.Default)
         scope.launch { // do some uncritical work in background for faster startup

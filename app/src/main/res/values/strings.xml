@@ -286,6 +286,7 @@
     <string name="dict_guide_title">Offline Word Suggestions</string>
     <string name="dict_guide_desc">FrostKeys uses offline dictionary files to suggest words as you type.\n\nTo download a dictionary (or emoji dictionary):\n1. Click the button below to open the dictionary page on Codeberg.\n2. Open the relevant folder: \'dictionaries\' for standard languages, or \'emoji_cldr_signal_dictionaries\' for emojis.\n3. Locate and select the dictionary file for your language.\n4. Click the tiny download button (small icon on the right) or click the \'View raw\' / \'Raw\' button to download the file.\n\n💡 Tip: Tap directly on any language in the list below to get a direct download link for that specific language\'s dictionary!</string>
     <string name="dict_download_btn">Download Dictionaries (Codeberg)</string>
+    <string name="download">Download</string>
 
     <string name="quick_setup_title">FrostKeys Quick Setup</string>
     <string name="quick_setup_desc">Configure these essential settings to unlock the full power of FrostKeys:</string>

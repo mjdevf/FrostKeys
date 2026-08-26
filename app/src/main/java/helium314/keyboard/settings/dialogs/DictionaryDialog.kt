@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -21,16 +22,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import helium314.keyboard.compat.locale
 import helium314.keyboard.latin.dictionary.Dictionary
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.common.LocaleUtils.localizedDisplayName
+import helium314.keyboard.latin.common.Links
 import helium314.keyboard.latin.utils.DictionaryInfoUtils
+import helium314.keyboard.latin.utils.DictionaryUtils
 import helium314.keyboard.latin.utils.createDictionaryTextAnnotated
 import helium314.keyboard.latin.utils.DeleteButton
 import helium314.keyboard.latin.utils.ExpandButton
@@ -38,11 +43,12 @@ import helium314.keyboard.latin.utils.Theme
 import helium314.keyboard.settings.dictionaryFilePicker
 import helium314.keyboard.latin.utils.previewDark
 import helium314.keyboard.settings.screens.getUserAndInternalDictionaries
+import helium314.keyboard.dictionarypack.DictionaryPackConstants
+import helium314.keyboard.dictionarypack.DictionaryPackManager
 import java.io.File
 import java.util.Locale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
-import helium314.keyboard.dictionarypack.DictionaryPackConstants
 
 @Composable
 fun DictionaryDialog(
@@ -54,8 +60,43 @@ fun DictionaryDialog(
     val mainDict = dictionaries.firstOrNull { it.name == Dictionary.TYPE_MAIN + "_" + DictionaryInfoUtils.USER_DICTIONARY_SUFFIX }
     val addonDicts = dictionaries.filterNot { it == mainDict }
     val picker = dictionaryFilePicker(locale)
+
+    // Get available dictionaries for download
+    val availableDicts = remember(locale) { DictionaryUtils.getKnownDictionariesForLocale(locale, ctx) }
+    val packManager = remember { DictionaryPackManager(ctx) }
+
+    // Track download states
+    val downloadStates = remember { mutableStateMapOf<String, DictionaryPackManager.DownloadInfo>() }
+
+    // Listen for download progress
+    LaunchedEffect(ctx) {
+        packManager.addProgressListener { localeStr, dictType, progress, status ->
+            val key = "${dictType}_$localeStr"
+            if (status == DictionaryPackManager.DownloadStatus.COMPLETED ||
+                status == DictionaryPackManager.DownloadStatus.FAILED ||
+                status == DictionaryPackManager.DownloadStatus.CANCELLED) {
+                downloadStates.remove(key)
+            } else {
+                downloadStates[key] = DictionaryPackManager.DownloadInfo(
+                    locale = localeStr,
+                    dictType = dictType,
+                    url = "",
+                    experimental = false,
+                    progress = progress,
+                    status = status
+                )
+            }
+        }
+    }
+
     ThreeButtonAlertDialog(
-        onDismissRequest = onDismissRequest,
+        onDismissRequest = {
+            packManager.removeProgressListener { localeStr, dictType, progress, status ->
+                // This is just to remove the listener; the actual listener is removed by LaunchedEffect disposal
+            }
+            packManager.shutdown()
+            onDismissRequest()
+        },
         onConfirmed = {},
         confirmButtonText = null,
         cancelButtonText = stringResource(R.string.dialog_close),
@@ -64,7 +105,7 @@ fun DictionaryDialog(
             Column {
                 if (hasInternal) {
                     val color = if (mainDict == null) MaterialTheme.typography.titleSmall.color
-                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) // for disabled look
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     val bottomPadding = if (mainDict == null) 12.dp else 0.dp
                     Text(stringResource(R.string.internal_dictionary_summary),
                         modifier = Modifier
@@ -84,14 +125,78 @@ fun DictionaryDialog(
                     )
                     addonDicts.forEach { DictionaryDetails(it) }
                 }
-                val dictString = createDictionaryTextAnnotated(locale)
-                if (dictString.isNotEmpty()) {
+
+                // Show available dictionaries for download
+                if (availableDicts.isNotEmpty()) {
                     HorizontalDivider()
                     Text(stringResource(R.string.dictionary_available),
                         modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
                         style = MaterialTheme.typography.titleSmall
                     )
-                    Text(dictString, style = LocalTextStyle.current.merge(lineHeight = 1.8.em))
+                    Column {
+                        availableDicts.forEach { (name, url) ->
+                            val isExperimental = url.contains("dictionaries_experimental")
+                            // Use language code for download (e.g., "de" not "de-DE")
+                            val localeCode = locale.language
+                            val key = "main_$localeCode"
+                            val downloadInfo = downloadStates[key]
+                            val isDownloading = downloadInfo?.status == DictionaryPackManager.DownloadStatus.DOWNLOADING
+                            val progress = downloadInfo?.progress ?: 0f
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (isExperimental)
+                                            stringResource(R.string.available_dictionary_experimental, name)
+                                        else name,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    if (isDownloading) {
+                                        androidx.compose.foundation.layout.Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(4.dp)
+                                                .padding(top = 4.dp)
+                                        ) {
+                                            androidx.compose.foundation.layout.Box(
+                                                modifier = Modifier
+                                                    .width(progress * 1f)
+                                                    .fillMaxHeight()
+                                                    .background(MaterialTheme.colorScheme.primary)
+                                            )
+                                        }
+                                    }
+                                }
+                                if (!isDownloading && mainDict == null) {
+                                    Button(
+                                        onClick = {
+                                            packManager.downloadDictionary(
+                                                localeCode,
+                                                "main",
+                                                isExperimental
+                                            ) { success, error ->
+                                                // UI updates via progress listener
+                                            }
+                                        },
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    ) {
+                                        Text(stringResource(R.string.download))
+                                    }
+                                } else if (isDownloading) {
+                                    Text(
+                                        "${(progress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },

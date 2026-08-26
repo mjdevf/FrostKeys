@@ -28,6 +28,7 @@ plugins {
     kotlin("android")
     kotlin("plugin.serialization") version "2.3.20"
     kotlin("plugin.compose") version "2.3.20"
+    id("androidx.benchmark")
 }
 
 android {
@@ -55,6 +56,11 @@ android {
             }
         }
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        // Benchmark test instrumentation
+        testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+        testInstrumentationRunnerArguments["androidx.benchmark.dryRunMode.enable"] = "false"
+        testInstrumentationRunnerArguments["androidx.benchmark.iterations"] = "10"
+        testInstrumentationRunnerArguments["androidx.benchmark.output.enable"] = "true"
     }
 
     buildTypes {
@@ -90,6 +96,23 @@ android {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["stickerProviderAuthority"] = "${defaultConfig.applicationId}.debug.stickercontentprovider"
         }
+        // Benchmark build type
+        create("benchmark") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isDebuggable = false
+            isJniDebuggable = false
+            matchingFallbacks = listOf("release")
+            matchingFallbacks += listOf("nouserlib")
+            manifestPlaceholders["stickerProviderAuthority"] = "${defaultConfig.applicationId}.stickercontentprovider"
+            // Benchmark plugin configuration
+            benchmark {
+                instrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+                dryRunMode.enable = false
+                iterations = 10
+                output.enable = true
+            }
+        }
 
         androidComponents.onVariants { variant: ApplicationVariant ->
             if (variant.buildType == "debug") {
@@ -99,6 +122,16 @@ android {
                 //noinspection ProguardAndroidTxtUsage we intentionally use the "normal" file here
                 variant.proguardFiles.add(project.layout.buildDirectory.file(project.buildFile.parent + "/dontoptimize.pro"))
                 variant.proguardFiles.add(project.layout.buildDirectory.file(project.buildFile.parent + "/proguard-rules.pro"))
+            }
+            if (variant.buildType == "release" || variant.buildType == "nouserlib") {
+                // Keep only English (US) and Indonesian dictionaries to reduce APK size
+                variant.androidResources.ignoreAssetsPatterns = listOf(
+                    "main_bg.dict", "main_bn.dict", "main_de.dict", "main_el.dict",
+                    "main_en-GB.dict", "main_es.dict", "main_fr.dict", "main_hu.dict",
+                    "main_it.dict", "main_nl.dict", "main_pl.dict", "main_pt-BR.dict",
+                    "main_pt-PT.dict", "main_ro.dict", "main_ru.dict", "main_sv.dict",
+                    "main_tr.dict"
+                )
             }
             variant.outputs.forEach { output ->
                 if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
@@ -134,6 +167,12 @@ android {
         }
     }
 
+    // Benchmark configuration
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+        animationsDisabled = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -162,7 +201,6 @@ android {
 dependencies {
     // androidx
     implementation("androidx.core:core-ktx:1.17.0") // 1.18.0 requires minSdk 23
-    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.autofill:autofill:1.3.0")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
@@ -180,6 +218,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     "debugNoMinifyImplementation"("androidx.compose.ui:ui-tooling")
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
     implementation("androidx.navigation:navigation-compose:2.9.8")
     implementation("sh.calvin.reorderable:reorderable:3.1.0") // for easier re-ordering
     implementation("com.github.skydoves:colorpicker-compose:1.1.3") // for user-defined colors
@@ -187,8 +226,11 @@ dependencies {
     implementation("io.coil-kt:coil:2.7.0")
     implementation("io.coil-kt:coil-gif:2.7.0")
     implementation("com.aureusapps.android:webp-android:1.1.2")
-    implementation("com.google.android.material:material:1.12.0")
     implementation("dev.chrisbanes.haze:haze:0.7.3")
+
+    // benchmark
+    implementation("androidx.benchmark:benchmark-macro-junit4:1.3.0")
+    implementation("androidx.benchmark:benchmark-junit4:1.3.0")
 
     // test
     testImplementation(kotlin("test"))

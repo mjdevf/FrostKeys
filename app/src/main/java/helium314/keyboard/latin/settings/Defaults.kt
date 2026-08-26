@@ -156,8 +156,8 @@ object Defaults {
     @JvmField
     val PREF_NAVBAR_COLOR = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
     const val PREF_NARROW_KEY_GAPS = false
-    const val PREF_ENABLED_SUBTYPES = ""
-    const val PREF_SELECTED_SUBTYPE = ""
+    const val PREF_ENABLED_SUBTYPES = "en_US${Separators.SETS}in${Separators.SETS}"
+    const val PREF_SELECTED_SUBTYPE = "en_US"
     const val PREF_URL_DETECTION = false
     const val PREF_DONT_SHOW_MISSING_DICTIONARY_DIALOG = false
     const val PREF_TOOLBAR_MODE = "EXPANDABLE"
