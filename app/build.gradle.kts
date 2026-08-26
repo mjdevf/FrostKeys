@@ -197,6 +197,8 @@ dependencies {
     implementation("io.coil-kt:coil:2.7.0")
     implementation("io.coil-kt:coil-gif:2.7.0")
     implementation("com.aureusapps.android:webp-android:1.1.2")
+    // dipakai lewat resource XML: Theme.Material3.DayNight.NoActionBar & attr/cornerSize di themes-common.xml
+    implementation("com.google.android.material:material:1.12.0")
     implementation("dev.chrisbanes.haze:haze:0.7.3")
 
     // test
