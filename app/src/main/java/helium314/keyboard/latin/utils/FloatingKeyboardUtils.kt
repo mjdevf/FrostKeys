@@ -42,8 +42,6 @@ object FloatingKeyboardUtils {
     private val TAG = this::class.java.simpleName
     private var extraHeight = 0f
 
-    private const val RESIZE_RELOAD_INTERVAL_MS = 120L
-
     private enum class Corner { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
 
     @JvmStatic
@@ -53,7 +51,7 @@ object FloatingKeyboardUtils {
         val sv = Settings.getValues()
         val dm = view.resources.displayMetrics
         extraHeight = getSuggestionStripHeight(view.resources) + getFloatingHandleHeight(view.resources)
-        // full-screen bounds — the panel may go anywhere on screen (Gboard-style), not only
+        // full-screen bounds - the panel may go anywhere on screen (Gboard-style), not only
         // into the region above the docked keyboard position
         val maxX = (dm.widthPixels - sv.mFloatingWidth).coerceAtLeast(0)
         val maxY = (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight).coerceAtLeast(0)
@@ -72,8 +70,10 @@ object FloatingKeyboardUtils {
         view.findViewById<View>(R.id.float_handle_container)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_tl)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_tr)?.isVisible = true
+        view.findViewById<View>(R.id.resize_handle_bl)?.isVisible = true
+        view.findViewById<View>(R.id.resize_handle_br)?.isVisible = true
         wireHandles(view)
-        // insets may have been applied before the floating state was known — re-run so the
+        // insets may have been applied before the floating state was known - re-run so the
         // wrapper drops the nav bar bottom padding (see KeyboardWrapperView.onApplyWindowInsets)
         view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
     }
@@ -106,6 +106,8 @@ object FloatingKeyboardUtils {
         view.findViewById<View>(R.id.float_handle_container)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_tl)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_tr)?.isGone = true
+        view.findViewById<View>(R.id.resize_handle_bl)?.isGone = true
+        view.findViewById<View>(R.id.resize_handle_br)?.isGone = true
         // restore the nav bar bottom padding that floating mode drops (docked keyboard needs it)
         view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
     }
@@ -129,7 +131,7 @@ object FloatingKeyboardUtils {
     private fun applyFloatingWindowGeometry(view: View, decorLp: WindowManager.LayoutParams, x: Int, y: Int, width: Int) {
         if (decorLp.gravity == (Gravity.TOP or Gravity.START)
                 && decorLp.x == x && decorLp.y == y && decorLp.width == width)
-            return // already in place — avoid relayout churn from repeated setFloating calls
+            return // already in place - avoid relayout churn from repeated setFloating calls
         decorLp.gravity = Gravity.TOP or Gravity.START
         decorLp.x = x
         decorLp.y = y
@@ -155,7 +157,7 @@ object FloatingKeyboardUtils {
     @JvmStatic
     fun getFloatingHandleHeight(resources: Resources) = resources.getDimension(R.dimen.config_floating_handle_height)
 
-    /** [maxX] / [maxY] are the current bounds (window may have changed size, e.g. rotation) — position gets clamped and re-saved if it no longer fits. */
+    /** [maxX] / [maxY] are the current bounds (window may have changed size, e.g. rotation) - position gets clamped and re-saved if it no longer fits. */
     @JvmStatic
     fun readPosition(context: Context, maxX: Int, maxY: Int): Pair<Int, Int> {
         val width = context.resources.displayMetrics.widthPixels
@@ -197,6 +199,7 @@ object FloatingKeyboardUtils {
         var curX = 0
         var curY = 0
         var baseTranslationY = 0f
+        var origGravity = Gravity.NO_GRAVITY
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -208,14 +211,15 @@ object FloatingKeyboardUtils {
                     }
                     curX = x0
                     curY = y0
-                    // anchor the panel to the bottom of the soon-expanded window
+                    // save original gravity and anchor the panel to the bottom of the soon-expanded window
                     (view.layoutParams as? FrameLayout.LayoutParams)?.let {
+                        origGravity = it.gravity
                         it.gravity = Gravity.BOTTOM
                         view.layoutParams = it
                     }
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, true)
                     val dm = context.resources.displayMetrics
-                    // expand into a transparent full-screen layer — translation then moves the
+                    // expand into a transparent full-screen layer - translation then moves the
                     // panel anywhere without touching the window until touch-up
                     val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams
                     if (decorLp != null && decorLp.width != ViewGroup.LayoutParams.MATCH_PARENT) {
@@ -239,7 +243,7 @@ object FloatingKeyboardUtils {
                         .coerceIn(0, (dm.widthPixels - sv.mFloatingWidth).coerceAtLeast(0))
                     curY = (y0 + (event.rawY - startY)).toInt()
                         .coerceIn(0, (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight).coerceAtLeast(0))
-                    // render-thread only — no window updates, no relayout, no IPC per move
+                    // render-thread only - no window updates, no relayout, no IPC per move
                     view.rootView.translationX = curX.toFloat()
                     view.rootView.translationY = (curY - (dm.heightPixels - view.height)).toFloat()
                     true
@@ -247,6 +251,10 @@ object FloatingKeyboardUtils {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     view.rootView.translationX = 0f
                     view.rootView.translationY = 0f
+                    (view.layoutParams as? FrameLayout.LayoutParams)?.let {
+                        it.gravity = origGravity
+                        view.layoutParams = it
+                    }
                     updateWindowPosition(view, curX, curY)
                     savePosition(context, curX, curY)
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, false)
@@ -259,8 +267,8 @@ object FloatingKeyboardUtils {
 
     /**
      * Gboard-style corner resize: dragging a corner changes width/height while the opposite
-     * corner stays anchored. Size persists (cheap memory write) so the throttled keyboard
-     * rebuilds pick the new geometry up; a final rebuild runs on touch-up.
+     * corner stays anchored. Window updates continuously during move for instant visual feedback;
+     * full keyboard rebuild runs once on touch-up.
      */
     @SuppressLint("ClickableViewAccessibility")
     private fun View.setCornerResizeListener(view: View, corner: Corner) {
@@ -274,8 +282,6 @@ object FloatingKeyboardUtils {
         var curY = 0
         var curW = 0
         var curH = 0
-        var lastReload = 0L
-        val scale = 3 / context.resources.displayMetrics.density
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -292,7 +298,7 @@ object FloatingKeyboardUtils {
                     curY = y0
                     curW = w0
                     curH = h0
-                    // every window size change would re-render the blur behind it — suppress
+                    // every window size change would re-render the blur behind it - suppress
                     // it for the gesture (same tradeoff as dragging), restore on release
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, true)
                     true
@@ -300,8 +306,8 @@ object FloatingKeyboardUtils {
                 MotionEvent.ACTION_MOVE -> {
                     val sv = Settings.getValues()
                     val dm = context.resources.displayMetrics
-                    val dx = ((event.rawX - startX) / scale).toInt()
-                    val dy = ((event.rawY - startY) / scale).toInt()
+                    val dx = (event.rawX - startX).toInt()
+                    val dy = (event.rawY - startY).toInt()
                     val growRight = corner == Corner.TOP_RIGHT || corner == Corner.BOTTOM_RIGHT
                     val growDown = corner == Corner.BOTTOM_LEFT || corner == Corner.BOTTOM_RIGHT
                     curW = (w0 + if (growRight) dx else -dx).coerceIn(150, dm.widthPixels)
@@ -321,10 +327,7 @@ object FloatingKeyboardUtils {
                         decorLp.width = curW
                         windowManager(view).updateViewLayout(view.rootView, decorLp)
                     }
-                    if (SystemClock.uptimeMillis() - lastReload > RESIZE_RELOAD_INTERVAL_MS) {
-                        lastReload = SystemClock.uptimeMillis()
-                        KeyboardSwitcher.getInstance().reloadKeyboard()
-                    }
+                    view.requestLayout()
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
