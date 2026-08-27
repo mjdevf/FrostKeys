@@ -26,7 +26,7 @@ object CloudManager {
     private var clientInstance: OkHttpClient? = null
     private var clientCacheDir: java.io.File? = null
 
-    private val client: OkHttpClient
+    val client: OkHttpClient
         get() {
             if (clientInstance == null) {
                 synchronized(this) {
@@ -47,7 +47,7 @@ object CloudManager {
         }
 
     fun init(appContext: Context) {
-        clientCacheDir = appContext.applicationContext.cacheDir.resolve("okhttp_cache").toFile()
+        clientCacheDir = appContext.applicationContext.cacheDir.resolve("okhttp_cache")
     }
 
     enum class CloudFeature {

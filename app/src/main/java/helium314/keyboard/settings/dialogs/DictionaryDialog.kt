@@ -33,7 +33,7 @@ import helium314.keyboard.latin.dictionary.Dictionary
 import helium314.keyboard.latin.R
 import helium314.keyboard.latin.common.LocaleUtils.localizedDisplayName
 import helium314.keyboard.latin.utils.DictionaryInfoUtils
-import helium314.keyboard.latin.utils.DictionaryUtils
+import helium314.keyboard.latin.utils.getKnownDictionariesForLocale
 import helium314.keyboard.latin.utils.DeleteButton
 import helium314.keyboard.latin.utils.ExpandButton
 import helium314.keyboard.latin.utils.Theme
@@ -59,7 +59,7 @@ fun DictionaryDialog(
     val picker = dictionaryFilePicker(locale)
 
     // Get available dictionaries for download
-    val availableDicts = remember(locale) { DictionaryUtils.getKnownDictionariesForLocale(locale, ctx) }
+    val availableDicts = remember(locale) { getKnownDictionariesForLocale(locale, ctx) }
     val packManager = remember { DictionaryPackManager(ctx) }
 
     // Track download states

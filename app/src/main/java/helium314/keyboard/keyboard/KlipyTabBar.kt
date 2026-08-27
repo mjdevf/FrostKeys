@@ -91,6 +91,10 @@ fun KlipyTabBar(
                 fontSize = 14.sp
             )
         ) {
+            val tabs = listOf(
+                Triple(KlipyHistoryDao.TYPE_GIF, stringResource(R.string.tab_gifs), R.drawable.ic_tab_gif),
+                Triple(KlipyHistoryDao.TYPE_STICKER, stringResource(R.string.tab_stickers), R.drawable.ic_tab_stickers)
+            )
             ButtonGroup(
                 overflowIndicator = {},
                 expandedRatio = 0f,
@@ -99,10 +103,6 @@ fun KlipyTabBar(
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                val tabs = listOf(
-                    Triple(KlipyHistoryDao.TYPE_GIF, stringResource(R.string.tab_gifs), R.drawable.ic_tab_gif),
-                    Triple(KlipyHistoryDao.TYPE_STICKER, stringResource(R.string.tab_stickers), R.drawable.ic_tab_stickers)
-                )
                 tabs.forEachIndexed { index, (tabType, displayText, iconRes) ->
                     val isSelected = selectedTab == tabType
                     customItem(

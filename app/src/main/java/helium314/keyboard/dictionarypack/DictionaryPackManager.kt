@@ -30,7 +30,7 @@ class DictionaryPackManager(private val context: Context) {
     private val downloadScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val progressListeners = mutableListOf<DownloadProgressListener>()
 
-    interface DownloadProgressListener {
+    fun interface DownloadProgressListener {
         fun onProgress(locale: String, dictType: String, progress: Float, status: DownloadStatus)
     }
 
