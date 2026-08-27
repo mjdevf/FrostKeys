@@ -199,7 +199,7 @@ object FrostedGlassHelper {
      * Temporarily hides the frosted window background while the floating keyboard is being
      * dragged. During the drag the panel moves via view translation inside a temporarily
      * full-screen transparent window (smooth, zero window updates), so the window background
-     * would stay behind at the old position — suppressing it lets the panel's own theme
+     * would stay behind at the old position - suppressing it lets the panel's own theme
      * background show instead. Call again with [suppressed] = false to restore the frost.
      */
     @JvmStatic
@@ -207,12 +207,21 @@ object FrostedGlassHelper {
         val service = findInputMethodService(inputView.context) ?: return
         val window = service.window?.window ?: return
         if (suppressed) {
+            defaultBlurStates.remove(window)
+            windowsWithAppliedFrostedGlass.remove(window)
+            synchronized(nativeBlurStates) {
+                nativeBlurStates[window]?.let {
+                    cancelPendingNativeBlurCleanup(it)
+                    clearNativeBlurReady(it)
+                }
+            }
             window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             // the blur follows the window bounds via this attribute and is independent of the
-            // background drawable — while dragging/resizing the window is (temporarily) expanded,
+            // background drawable - while dragging/resizing the window is (temporarily) expanded,
             // so a live blur here would paint a full-screen blur band behind the panel
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) window.setBackgroundBlurRadius(0)
         } else {
+            defaultBlurStates.remove(window)
             configureFrostedGlass(service, inputView, isFrostedTheme(service))
         }
     }
@@ -426,7 +435,7 @@ object FrostedGlassHelper {
     private fun constrainImeWindowToKeyboardBounds(service: InputMethodService, window: Window, inputView: View?) {
         service.updateSoftInputWindowLayoutParameters(inputView, true)
         // Floating mode: FloatingKeyboardUtils owns the window geometry (panel-sized, freely
-        // placed via WindowManager) — forcing MATCH_PARENT/BOTTOM here would fight it and
+        // placed via WindowManager) - forcing MATCH_PARENT/BOTTOM here would fight it and
         // stretch the frosted blur back into a full-width band.
         if (Settings.getValues()?.mIsFloatingKeyboard == true) return
 
@@ -984,7 +993,7 @@ object FrostedGlassHelper {
             } else {
                 context.prefs().getInt(Settings.PREF_FROSTED_BLUR_RADIUS, Defaults.PREF_FROSTED_BLUR_RADIUS)
             }
-        // GPU cost ~O(r^2). Slider max is 150, but let user's own choice through —
+        // GPU cost ~O(r^2). Slider max is 150, but let user's own choice through -
         // capping silently at 20 made the slider lie (showed e.g. "150px" while
         // rendering 20px). Keep only a sane hard ceiling matching the slider range.
         return raw.coerceIn(1, 150)
