@@ -1089,6 +1089,7 @@ public class LatinIME extends InputMethodService implements
         SubtypeSettings.INSTANCE.reloadSystemLocales(this);
         if (settingsValues.mDisplayOrientation != conf.orientation) {
             mHandler.startOrientationChanging();
+            loadSettings();
             mInputLogic.onOrientationChange(mSettings.getCurrent());
         }
         if (settingsValues.mHasHardwareKeyboard != Settings.readHasHardwareKeyboard(conf)) {
@@ -1453,7 +1454,7 @@ public class LatinIME extends InputMethodService implements
         super.onWindowShown();
         mLifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME);
         if (isInputViewShown()) {
-            // enforce both directions — e.g. returning to portrait after auto-float landscape
+            // enforce both directions - e.g. returning to portrait after auto-float landscape
             if (mInputView != null) {
                 if (Settings.getValues().mIsFloatingKeyboard)
                     FloatingKeyboardUtils.setFloating(mInputView);
@@ -1676,12 +1677,12 @@ public class LatinIME extends InputMethodService implements
 
         if (Settings.getValues().mIsFloatingKeyboard) {
             // Floating mode: the IME window itself IS the floating panel (positioned by
-            // FloatingKeyboardUtils), so the whole window is the keyboard — a simple
+            // FloatingKeyboardUtils), so the whole window is the keyboard - a simple
             // window-relative region covers it exactly.
             final SettingsValues sv = Settings.getValues();
             final int extraHeight = (mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0)
                     + (int) FloatingKeyboardUtils.getFloatingHandleHeight(getResources());
-            // Don't report the empty area above the floating keyboard as content/visible top —
+            // Don't report the empty area above the floating keyboard as content/visible top -
             // upstream (GH-702, GH-1455) found that makes apps pan as if the keyboard were docked.
             outInsets.contentTopInsets = getResources().getDisplayMetrics().heightPixels;
             outInsets.visibleTopInsets = getResources().getDisplayMetrics().heightPixels;
@@ -1767,7 +1768,7 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public boolean onEvaluateFullscreenMode() {
-        // already unconditionally false in FrostKeys — floating mode doesn't need special handling here
+        // already unconditionally false in FrostKeys - floating mode doesn't need special handling here
         return false;
     }
 
@@ -2159,7 +2160,7 @@ public class LatinIME extends InputMethodService implements
             mKeyboardSwitcher.reloadMainKeyboard();
         }
         // Floating state can flip on any settings/keyboard reload (e.g. rotation into/out of
-        // landscape with auto-float enabled), not just on window show or first layout — enforce
+        // landscape with auto-float enabled), not just on window show or first layout - enforce
         // it here so it doesn't end up stuck half-applied (wrong size but no drag/resize handle).
         if (mInputView != null) {
             if (Settings.getValues().mIsFloatingKeyboard)
@@ -2461,7 +2462,7 @@ public class LatinIME extends InputMethodService implements
                 KeyboardLayoutSet.onSystemLocaleChanged(); // clears caches, nothing else
                 mKeyboardSwitcher.trimMemory();
                 // Release dictionary memory (27MB+) under system pressure.
-                // Reload on next input is acceptable here — trim is rare,
+                // Reload on next input is acceptable here - trim is rare,
                 // unlike hiding/reopening the keyboard.
                 mDictionaryFacilitator.closeDictionaries();
             }
