@@ -16,6 +16,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.core.content.edit
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import helium314.keyboard.keyboard.KeyboardSwitcher
@@ -53,14 +54,16 @@ object FloatingKeyboardUtils {
         val sv = Settings.getValues()
         val dm = view.resources.displayMetrics
         extraHeight = getSuggestionStripHeight(view.resources) + getFloatingHandleHeight(view.resources)
-        // full-screen bounds - the panel may go anywhere on screen (Gboard-style), not only
-        // into the region above the docked keyboard position
+        val navBarHeight = getNavigationBarHeight(view)
+        val bottomBuffer = (navBarHeight + (16 * dm.density).toInt()).coerceAtLeast((48 * dm.density).toInt())
+        // full-screen bounds with safe bottom buffer above the navigation bar / gesture zone
         val maxX = (dm.widthPixels - sv.mFloatingWidth).coerceAtLeast(0)
-        val maxY = (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight).coerceAtLeast(0)
-        // center the keyboard by default until the user drags it somewhere else;
-        // persist immediately so the insets computation (which reads without bounds) agrees
+        val maxY = (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight - bottomBuffer).coerceAtLeast(0)
+        // center the keyboard by default and place it comfortably above the navbar until dragged
         val (x, y) = if (hasSavedPosition(view.context)) readPosition(view.context, maxX, maxY) else {
-            val centered = maxX / 2 to maxY / 2
+            val defaultX = maxX / 2
+            val defaultY = (maxY * 0.7f).toInt().coerceIn(0, maxY)
+            val centered = defaultX to defaultY
             savePosition(view.context, centered.first, centered.second)
             centered
         }
@@ -70,6 +73,7 @@ object FloatingKeyboardUtils {
         if (view.findViewById<View>(R.id.float_handle_container)?.isVisible == true)
             return
         view.findViewById<View>(R.id.float_handle_container)?.isVisible = true
+        view.findViewById<View>(R.id.drag_handle_top)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_tl)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_tr)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_bl)?.isVisible = true
@@ -106,12 +110,14 @@ object FloatingKeyboardUtils {
             view.requestLayout()
         }
         view.findViewById<View>(R.id.float_handle_container)?.isGone = true
+        view.findViewById<View>(R.id.drag_handle_top)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_tl)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_tr)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_bl)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_br)?.isGone = true
         val handles = listOfNotNull(
             view.findViewById<View?>(R.id.drag_handle),
+            view.findViewById<View?>(R.id.drag_handle_top),
             view.findViewById<View?>(R.id.float_handle_container),
             view.findViewById<View?>(R.id.resize_handle_tl),
             view.findViewById<View?>(R.id.resize_handle_tr),
@@ -134,6 +140,7 @@ object FloatingKeyboardUtils {
             }
         val handles = listOfNotNull(
             view.findViewById<View?>(R.id.drag_handle),
+            view.findViewById<View?>(R.id.drag_handle_top),
             view.findViewById<View?>(R.id.float_handle_container),
             view.findViewById<View?>(R.id.resize_handle_tl),
             view.findViewById<View?>(R.id.resize_handle_tr),
@@ -142,6 +149,7 @@ object FloatingKeyboardUtils {
         )
         handles.forEach { registerSystemGestureExclusion(it) }
         view.findViewById<View>(R.id.drag_handle)?.setDragListener(view)
+        view.findViewById<View>(R.id.drag_handle_top)?.setDragListener(view)
         view.findViewById<View>(R.id.resize_handle_tl)?.setCornerResizeListener(view, Corner.TOP_LEFT)
         view.findViewById<View>(R.id.resize_handle_tr)?.setCornerResizeListener(view, Corner.TOP_RIGHT)
         view.findViewById<View>(R.id.resize_handle_bl)?.setCornerResizeListener(view, Corner.BOTTOM_LEFT)
@@ -195,6 +203,17 @@ object FloatingKeyboardUtils {
     private fun windowManager(view: View) =
         view.context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
+    private fun getNavigationBarHeight(view: View): Int {
+        val rootInsets = ViewCompat.getRootWindowInsets(view.rootView)
+        val navInsets = rootInsets?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom
+            ?: rootInsets?.getInsets(WindowInsetsCompat.Type.systemGestures())?.bottom
+        if (navInsets != null && navInsets > 0) return navInsets
+
+        val res = view.resources
+        val resId = res.getIdentifier("navigation_bar_height", "dimen", "android")
+        return if (resId > 0) res.getDimensionPixelSize(resId) else (48 * res.displayMetrics.density).toInt()
+    }
+
     @JvmStatic
     fun getFloatingHandleHeight(resources: Resources) = resources.getDimension(R.dimen.config_floating_handle_height)
 
@@ -202,10 +221,11 @@ object FloatingKeyboardUtils {
     @JvmStatic
     fun readPosition(context: Context, maxX: Int, maxY: Int): Pair<Int, Int> {
         val width = context.resources.displayMetrics.widthPixels
+        val defaultY = (maxY * 0.7f).toInt().coerceIn(0, maxY)
         val x = context.prefs().getInt(Settings.PREF_FLOATING_POS_X_PREFIX + width, width / 2)
-        val y = context.prefs().getInt(Settings.PREF_FLOATING_POS_Y_PREFIX + width, context.resources.displayMetrics.heightPixels / 2)
+        val y = context.prefs().getInt(Settings.PREF_FLOATING_POS_Y_PREFIX + width, defaultY)
         if (x > maxX || y > maxY)
-            savePosition(context, maxX.coerceAtLeast(0), maxY.coerceAtLeast(0))
+            savePosition(context, x.coerceIn(0, maxX.coerceAtLeast(0)), y.coerceIn(0, maxY.coerceAtLeast(0)))
         return x.coerceIn(0, maxX.coerceAtLeast(0)) to y.coerceIn(0, maxY.coerceAtLeast(0))
     }
 

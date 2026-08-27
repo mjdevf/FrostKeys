@@ -43,4 +43,25 @@
         android:src="@drawable/ic_floating_corner"
         android:visibility="gone"
         android:contentDescription="@string/label_resize_onehanded_key" />
+
+    <!-- Gboard-style top drag handle strip (floating mode only) -->
+    <FrameLayout
+        android:id="@+id/drag_handle_top"
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:visibility="gone"
+        android:contentDescription="@string/label_stop_onehanded_mode_key">
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_floating_pill" />
+    </FrameLayout>
 </helium314.keyboard.latin.InputView>

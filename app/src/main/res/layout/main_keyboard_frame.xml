@@ -111,16 +111,16 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/config_floating_handle_height">
 
-        <!-- Gboard-style bottom drag pill -->
+        <!-- Gboard-style bottom drag pill with expanded touch target -->
         <ImageView
             android:id="@+id/drag_handle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:layout_marginStart="32dp"
+            android:layout_marginEnd="32dp"
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
-            android:paddingStart="18dp"
-            android:paddingEnd="18dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_floating_pill"
             android:contentDescription="@string/label_stop_onehanded_mode_key" />
