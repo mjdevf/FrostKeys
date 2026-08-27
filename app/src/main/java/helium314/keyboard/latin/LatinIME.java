@@ -1688,7 +1688,8 @@ public class LatinIME extends InputMethodService implements
             // window-relative region covers it exactly.
             final SettingsValues sv = Settings.getValues();
             final int extraHeight = (mKeyboardSwitcher.isShowingStripContainer() ? mKeyboardSwitcher.getStripContainer().getHeight() : 0)
-                    + (int) FloatingKeyboardUtils.getFloatingHandleHeight(getResources());
+                    + (int) FloatingKeyboardUtils.getFloatingHandleHeight(getResources())
+                    + (int) FloatingKeyboardUtils.getFloatingTopHandleHeight(getResources());
             // Don't report the empty area above the floating keyboard as content/visible top -
             // upstream (GH-702, GH-1455) found that makes apps pan as if the keyboard were docked.
             outInsets.contentTopInsets = getResources().getDisplayMetrics().heightPixels;

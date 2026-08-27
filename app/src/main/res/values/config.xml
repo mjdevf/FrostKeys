@@ -82,6 +82,7 @@
 
     <!-- Floating keyboard -->
     <dimen name="config_floating_handle_height">30dp</dimen>
+    <dimen name="config_floating_top_handle_height">20dp</dimen>
 
     <!-- Key codes of hardware keys that can be used to toggle the Emoji layout.
          Each array defines a comma-separated tuple containing:

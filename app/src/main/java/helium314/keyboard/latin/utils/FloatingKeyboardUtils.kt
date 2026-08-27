@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.latin.utils
 
 import android.annotation.SuppressLint
@@ -52,7 +52,7 @@ object FloatingKeyboardUtils {
         val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams ?: return
         val sv = Settings.getValues()
         val dm = view.resources.displayMetrics
-        extraHeight = getSuggestionStripHeight(view.resources) + getFloatingHandleHeight(view.resources)
+        extraHeight = getSuggestionStripHeight(view.resources) + getFloatingHandleHeight(view.resources) + getFloatingTopHandleHeight(view.resources)
         val navBarHeight = getNavigationBarHeight(view)
         val bottomBuffer = (navBarHeight + (16 * dm.density).toInt()).coerceAtLeast((48 * dm.density).toInt())
         // full-screen bounds with safe bottom buffer above the navigation bar / gesture zone
@@ -285,6 +285,9 @@ object FloatingKeyboardUtils {
 
     @JvmStatic
     fun getFloatingHandleHeight(resources: Resources) = resources.getDimension(R.dimen.config_floating_handle_height)
+
+    @JvmStatic
+    fun getFloatingTopHandleHeight(resources: Resources) = resources.getDimension(R.dimen.config_floating_top_handle_height)
 
     /** [maxX] / [maxY] are the current bounds (window may have changed size, e.g. rotation) - position gets clamped and re-saved if it no longer fits. */
     @JvmStatic
