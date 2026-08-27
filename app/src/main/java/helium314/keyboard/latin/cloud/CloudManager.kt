@@ -23,6 +23,7 @@ object CloudManager {
     private const val CONNECTION_POOL_KEEP_ALIVE_MS = 5 * 60 * 1000L // 5 minutes
     private const val CALL_TIMEOUT_MS = 30 * 1000L // 30 seconds
 
+    @Volatile
     private var clientInstance: OkHttpClient? = null
     private var clientCacheDir: java.io.File? = null
 
