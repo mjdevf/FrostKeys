@@ -1091,6 +1091,13 @@ public class LatinIME extends InputMethodService implements
             mHandler.startOrientationChanging();
             loadSettings();
             mInputLogic.onOrientationChange(mSettings.getCurrent());
+            if (mInputView != null) {
+                if (mSettings.getCurrent().mIsFloatingKeyboard) {
+                    FloatingKeyboardUtils.setFloating(mInputView);
+                } else {
+                    FloatingKeyboardUtils.disableFloating(mInputView);
+                }
+            }
         }
         if (settingsValues.mHasHardwareKeyboard != Settings.readHasHardwareKeyboard(conf)) {
             // If the state of having a hardware keyboard changed, then we want to reload

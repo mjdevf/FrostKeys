@@ -1,10 +1,12 @@
-// SPDX-License-Identifier: GPL-3.0-only
+﻿// SPDX-License-Identifier: GPL-3.0-only
 package helium314.keyboard.latin.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
@@ -30,20 +32,17 @@ import helium314.keyboard.latin.settings.setFloatingSize
 /**
  * Handles positioning, dragging and resizing of the keyboard when floating mode is active.
  *
- * Originally ported from upstream HeliBoard (Helium314/HeliBoard, PR #2501 "Add floating keyboard"),
- * then reworked to window-based positioning (Gboard-style): the IME window itself is resized to the
- * floating panel and moved via WindowManager. Compared to the old margin-based approach this gives
- * free full-screen dragging, a frosted-glass blur that covers exactly the panel (the blur follows
- * the window background), a touch region that always matches the visible panel, and cheap drags.
- *
- * Dragging is extra smooth: on touch-down the window expands to a transparent full-screen layer,
- * the panel is moved with plain view translation (render thread only, zero window updates) and the
- * final position is committed with a single window update on touch-up. Resizing uses the four
- * Gboard-style corner handles, keeping the opposite corner anchored.
+ * Window-based positioning (Gboard-style): the IME window itself is resized to the floating panel
+ * and moved via WindowManager. Full-screen dragging expands the window into a transparent layer
+ * while keeping view bounds fixed, moving the panel smoothly with view translation.
  */
 object FloatingKeyboardUtils {
     private val TAG = this::class.java.simpleName
     private var extraHeight = 0f
+
+    private val hideHandler = Handler(Looper.getMainLooper())
+    private var hideRunnable: Runnable? = null
+    private const val AUTO_HIDE_DELAY_MS = 2500L
 
     private enum class Corner { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
 
@@ -69,16 +68,34 @@ object FloatingKeyboardUtils {
         }
         if (DebugFlags.DEBUG_ENABLED)
             Log.d(TAG, "place floating window at $x, $y, width ${sv.mFloatingWidth}, height ${sv.mFloatingHeight}")
+
+        // Fix layout params of the input view itself so it never stretches
+        val lp = view.layoutParams as? FrameLayout.LayoutParams
+        if (lp != null) {
+            lp.gravity = Gravity.TOP or Gravity.START
+            lp.width = sv.mFloatingWidth
+            lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+            view.layoutParams = lp
+        }
+
         applyFloatingWindowGeometry(view, decorLp, x, y, sv.mFloatingWidth)
-        if (view.findViewById<View>(R.id.float_handle_container)?.isVisible == true)
-            return
-        view.findViewById<View>(R.id.float_handle_container)?.isVisible = true
-        view.findViewById<View>(R.id.drag_handle_top)?.isVisible = true
+
+        view.findViewById<View>(R.id.float_handle_container)?.let {
+            it.isVisible = true
+            it.alpha = 1f
+        }
+        view.findViewById<View>(R.id.drag_handle_top)?.let {
+            it.isVisible = true
+            it.alpha = 1f
+        }
         view.findViewById<View>(R.id.resize_handle_tl)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_tr)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_bl)?.isVisible = true
         view.findViewById<View>(R.id.resize_handle_br)?.isVisible = true
+
         wireHandles(view)
+        scheduleAutoHide(view)
+
         // insets may have been applied before the floating state was known - re-run so the
         // wrapper drops the nav bar bottom padding (see KeyboardWrapperView.onApplyWindowInsets)
         view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
@@ -87,8 +104,10 @@ object FloatingKeyboardUtils {
     @JvmStatic
     fun disableFloating(view: View?) {
         if (view == null) return
+        cancelAutoHide()
+
         val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams
-        if (decorLp != null && decorLp.width != ViewGroup.LayoutParams.MATCH_PARENT) {
+        if (decorLp != null) {
             // restore the full-width docked window geometry
             decorLp.gravity = Gravity.BOTTOM
             decorLp.x = 0
@@ -99,22 +118,37 @@ object FloatingKeyboardUtils {
         }
         if (DebugFlags.DEBUG_ENABLED)
             Log.d(TAG, "disable floating view")
+
+        view.translationX = 0f
+        view.translationY = 0f
         view.rootView.translationX = 0f
         view.rootView.translationY = 0f
+
         val lp = view.layoutParams as? ViewGroup.MarginLayoutParams
         if (lp != null) {
             lp.width = ViewGroup.LayoutParams.MATCH_PARENT
-            lp.height = ViewGroup.LayoutParams.MATCH_PARENT
+            lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
             lp.leftMargin = 0
             lp.topMargin = 0
+            view.layoutParams = lp
             view.requestLayout()
         }
-        view.findViewById<View>(R.id.float_handle_container)?.isGone = true
-        view.findViewById<View>(R.id.drag_handle_top)?.isGone = true
+
+        view.findViewById<View>(R.id.float_handle_container)?.let {
+            it.isGone = true
+            it.animate().cancel()
+            it.alpha = 1f
+        }
+        view.findViewById<View>(R.id.drag_handle_top)?.let {
+            it.isGone = true
+            it.animate().cancel()
+            it.alpha = 1f
+        }
         view.findViewById<View>(R.id.resize_handle_tl)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_tr)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_bl)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_br)?.isGone = true
+
         val handles = listOfNotNull(
             view.findViewById<View?>(R.id.drag_handle),
             view.findViewById<View?>(R.id.drag_handle_top),
@@ -125,6 +159,7 @@ object FloatingKeyboardUtils {
             view.findViewById<View?>(R.id.resize_handle_br)
         )
         handles.forEach { clearSystemGestureExclusion(it) }
+
         // restore the nav bar bottom padding that floating mode drops (docked keyboard needs it)
         view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
     }
@@ -138,6 +173,7 @@ object FloatingKeyboardUtils {
                     it.setColorFilter(accent)
                 }
             }
+
         val handles = listOfNotNull(
             view.findViewById<View?>(R.id.drag_handle),
             view.findViewById<View?>(R.id.drag_handle_top),
@@ -148,12 +184,46 @@ object FloatingKeyboardUtils {
             view.findViewById<View?>(R.id.resize_handle_br)
         )
         handles.forEach { registerSystemGestureExclusion(it) }
+
         view.findViewById<View>(R.id.drag_handle)?.setDragListener(view)
         view.findViewById<View>(R.id.drag_handle_top)?.setDragListener(view)
         view.findViewById<View>(R.id.resize_handle_tl)?.setCornerResizeListener(view, Corner.TOP_LEFT)
         view.findViewById<View>(R.id.resize_handle_tr)?.setCornerResizeListener(view, Corner.TOP_RIGHT)
         view.findViewById<View>(R.id.resize_handle_bl)?.setCornerResizeListener(view, Corner.BOTTOM_LEFT)
         view.findViewById<View>(R.id.resize_handle_br)?.setCornerResizeListener(view, Corner.BOTTOM_RIGHT)
+    }
+
+    private fun scheduleAutoHide(view: View) {
+        cancelAutoHide()
+        val r = Runnable {
+            val handles = listOfNotNull(
+                view.findViewById<View?>(R.id.float_handle_container),
+                view.findViewById<View?>(R.id.drag_handle_top)
+            )
+            handles.forEach { h ->
+                h.animate().alpha(0f).setDuration(350).start()
+            }
+        }
+        hideRunnable = r
+        hideHandler.postDelayed(r, AUTO_HIDE_DELAY_MS)
+    }
+
+    private fun showHandlesAndResetTimer(view: View) {
+        cancelAutoHide()
+        val handles = listOfNotNull(
+            view.findViewById<View?>(R.id.float_handle_container),
+            view.findViewById<View?>(R.id.drag_handle_top)
+        )
+        handles.forEach { h ->
+            h.animate().cancel()
+            h.alpha = 1f
+        }
+        scheduleAutoHide(view)
+    }
+
+    private fun cancelAutoHide() {
+        hideRunnable?.let { hideHandler.removeCallbacks(it) }
+        hideRunnable = null
     }
 
     private fun updateSystemGestureExclusion(view: View) {
@@ -180,7 +250,7 @@ object FloatingKeyboardUtils {
     private fun applyFloatingWindowGeometry(view: View, decorLp: WindowManager.LayoutParams, x: Int, y: Int, width: Int) {
         if (decorLp.gravity == (Gravity.TOP or Gravity.START)
                 && decorLp.x == x && decorLp.y == y && decorLp.width == width)
-            return // already in place - avoid relayout churn from repeated setFloating calls
+            return
         decorLp.gravity = Gravity.TOP or Gravity.START
         decorLp.x = x
         decorLp.y = y
@@ -191,7 +261,6 @@ object FloatingKeyboardUtils {
 
     private fun updateWindowPosition(view: View, x: Int, y: Int) {
         val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams ?: return
-        if (decorLp.x == x && decorLp.y == y && decorLp.width != ViewGroup.LayoutParams.MATCH_PARENT) return
         decorLp.gravity = Gravity.TOP or Gravity.START
         decorLp.x = x
         decorLp.y = y
@@ -248,8 +317,8 @@ object FloatingKeyboardUtils {
 
     /**
      * Smooth Gboard-style drag: on touch-down the window expands into a transparent full-screen
-     * layer so the panel can be moved with pure view translation (no window updates, no relayout
-     * per move event); the final position is committed with a single window update on touch-up.
+     * layer so the panel can be moved with pure view translation (no window updates, no relayout,
+     * no stretching); the final position is committed with a single window update on touch-up.
      */
     @SuppressLint("ClickableViewAccessibility")
     private fun View.setDragListener(view: View) {
@@ -259,13 +328,13 @@ object FloatingKeyboardUtils {
         var y0 = 0
         var curX = 0
         var curY = 0
-        var baseTranslationY = 0f
-        var origGravity = Gravity.NO_GRAVITY
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     parent?.requestDisallowInterceptTouchEvent(true)
                     view.parent?.requestDisallowInterceptTouchEvent(true)
+                    showHandlesAndResetTimer(view)
+
                     startX = event.rawX
                     startY = event.rawY
                     (view.rootView.layoutParams as? WindowManager.LayoutParams)?.let {
@@ -274,16 +343,20 @@ object FloatingKeyboardUtils {
                     }
                     curX = x0
                     curY = y0
-                    // save original gravity and anchor the panel to the bottom of the soon-expanded window
-                    (view.layoutParams as? FrameLayout.LayoutParams)?.let {
-                        origGravity = it.gravity
-                        it.gravity = Gravity.BOTTOM
-                        view.layoutParams = it
+
+                    // Keep InputView width strictly fixed so it never stretches in the expanded window
+                    val sv = Settings.getValues()
+                    val lp = view.layoutParams as? FrameLayout.LayoutParams
+                    if (lp != null) {
+                        lp.gravity = Gravity.TOP or Gravity.START
+                        lp.width = sv.mFloatingWidth
+                        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                        view.layoutParams = lp
                     }
+
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, true)
-                    val dm = context.resources.displayMetrics
-                    // expand into a transparent full-screen layer - translation then moves the
-                    // panel anywhere without touching the window until touch-up
+
+                    // Expand window into full-screen transparent layer for unrestricted dragging
                     val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams
                     if (decorLp != null && decorLp.width != ViewGroup.LayoutParams.MATCH_PARENT) {
                         decorLp.gravity = Gravity.TOP or Gravity.START
@@ -293,38 +366,41 @@ object FloatingKeyboardUtils {
                         decorLp.height = ViewGroup.LayoutParams.MATCH_PARENT
                         windowManager(view).updateViewLayout(view.rootView, decorLp)
                     }
-                    // keep the panel visually where it was: it now sits at the window bottom
-                    baseTranslationY = (y0 - (dm.heightPixels - view.height)).toFloat()
-                    view.rootView.translationX = x0.toFloat()
-                    view.rootView.translationY = baseTranslationY
+
+                    view.translationX = curX.toFloat()
+                    view.translationY = curY.toFloat()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     parent?.requestDisallowInterceptTouchEvent(true)
                     view.parent?.requestDisallowInterceptTouchEvent(true)
+                    showHandlesAndResetTimer(view)
+
                     val sv = Settings.getValues()
                     val dm = context.resources.displayMetrics
-                    curX = (x0 + (event.rawX - startX)).toInt()
-                        .coerceIn(0, (dm.widthPixels - sv.mFloatingWidth).coerceAtLeast(0))
-                    curY = (y0 + (event.rawY - startY)).toInt()
-                        .coerceIn(0, (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight).coerceAtLeast(0))
-                    // render-thread only - no window updates, no relayout, no IPC per move
-                    view.rootView.translationX = curX.toFloat()
-                    view.rootView.translationY = (curY - (dm.heightPixels - view.height)).toFloat()
+                    val navBarHeight = getNavigationBarHeight(view)
+                    val bottomBuffer = (navBarHeight + (16 * dm.density).toInt()).coerceAtLeast((48 * dm.density).toInt())
+                    val maxX = (dm.widthPixels - sv.mFloatingWidth).coerceAtLeast(0)
+                    val maxY = (dm.heightPixels - extraHeight.toInt() - sv.mFloatingHeight - bottomBuffer).coerceAtLeast(0)
+
+                    curX = (x0 + (event.rawX - startX)).toInt().coerceIn(0, maxX)
+                    curY = (y0 + (event.rawY - startY)).toInt().coerceIn(0, maxY)
+
+                    view.translationX = curX.toFloat()
+                    view.translationY = curY.toFloat()
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     parent?.requestDisallowInterceptTouchEvent(false)
                     view.parent?.requestDisallowInterceptTouchEvent(false)
-                    view.rootView.translationX = 0f
-                    view.rootView.translationY = 0f
-                    (view.layoutParams as? FrameLayout.LayoutParams)?.let {
-                        it.gravity = origGravity
-                        view.layoutParams = it
-                    }
+
+                    view.translationX = 0f
+                    view.translationY = 0f
+
                     updateWindowPosition(view, curX, curY)
                     savePosition(context, curX, curY)
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, false)
+                    scheduleAutoHide(view)
                     true
                 }
                 else -> false
@@ -354,6 +430,8 @@ object FloatingKeyboardUtils {
                 MotionEvent.ACTION_DOWN -> {
                     parent?.requestDisallowInterceptTouchEvent(true)
                     view.parent?.requestDisallowInterceptTouchEvent(true)
+                    showHandlesAndResetTimer(view)
+
                     startX = event.rawX
                     startY = event.rawY
                     val sv = Settings.getValues()
@@ -367,30 +445,43 @@ object FloatingKeyboardUtils {
                     curY = y0
                     curW = w0
                     curH = h0
-                    // every window size change would re-render the blur behind it - suppress
-                    // it for the gesture (same tradeoff as dragging), restore on release
+
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, true)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     parent?.requestDisallowInterceptTouchEvent(true)
                     view.parent?.requestDisallowInterceptTouchEvent(true)
+                    showHandlesAndResetTimer(view)
+
                     val sv = Settings.getValues()
                     val dm = context.resources.displayMetrics
+                    val navBarHeight = getNavigationBarHeight(view)
+                    val bottomBuffer = (navBarHeight + (16 * dm.density).toInt()).coerceAtLeast((48 * dm.density).toInt())
                     val dx = (event.rawX - startX).toInt()
                     val dy = (event.rawY - startY).toInt()
                     val growRight = corner == Corner.TOP_RIGHT || corner == Corner.BOTTOM_RIGHT
                     val growDown = corner == Corner.BOTTOM_LEFT || corner == Corner.BOTTOM_RIGHT
                     curW = (w0 + if (growRight) dx else -dx).coerceIn(150, dm.widthPixels)
-                    curH = (h0 + if (growDown) dy else -dy).coerceIn(100, dm.heightPixels - extraHeight.toInt())
+                    curH = (h0 + if (growDown) dy else -dy).coerceIn(100, dm.heightPixels - extraHeight.toInt() - bottomBuffer)
                     curX = if (growRight) x0 else x0 + (w0 - curW)
                     curY = if (growDown) y0 else y0 + (h0 - curH)
+
                     // keep the panel on screen
                     curX = curX.coerceIn(0, (dm.widthPixels - curW).coerceAtLeast(0))
-                    curY = curY.coerceIn(0, (dm.heightPixels - extraHeight.toInt() - curH).coerceAtLeast(0))
+                    curY = curY.coerceIn(0, (dm.heightPixels - extraHeight.toInt() - bottomBuffer - curH).coerceAtLeast(0))
+
                     if (curW == sv.mFloatingWidth && curH == sv.mFloatingHeight && curX == x0 && curY == y0)
                         return@setOnTouchListener true
+
                     setFloatingSize(context, curW, curH)
+
+                    val lp = view.layoutParams as? FrameLayout.LayoutParams
+                    if (lp != null && lp.width != curW) {
+                        lp.width = curW
+                        view.layoutParams = lp
+                    }
+
                     val decorLp = view.rootView.layoutParams as? WindowManager.LayoutParams
                     if (decorLp != null && (decorLp.x != curX || decorLp.y != curY || decorLp.width != curW)) {
                         decorLp.x = curX
@@ -404,9 +495,11 @@ object FloatingKeyboardUtils {
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     parent?.requestDisallowInterceptTouchEvent(false)
                     view.parent?.requestDisallowInterceptTouchEvent(false)
+
                     setFloatingSize(context, curW, curH)
                     KeyboardSwitcher.getInstance().reloadKeyboard()
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, false)
+                    scheduleAutoHide(view)
                     true
                 }
                 else -> false
