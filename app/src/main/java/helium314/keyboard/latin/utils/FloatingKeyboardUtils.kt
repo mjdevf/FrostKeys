@@ -4,6 +4,7 @@ package helium314.keyboard.latin.utils
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
+import android.graphics.Rect
 import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
@@ -14,6 +15,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.core.content.edit
+import androidx.core.view.ViewCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import helium314.keyboard.keyboard.KeyboardSwitcher
@@ -108,6 +110,15 @@ object FloatingKeyboardUtils {
         view.findViewById<View>(R.id.resize_handle_tr)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_bl)?.isGone = true
         view.findViewById<View>(R.id.resize_handle_br)?.isGone = true
+        val handles = listOfNotNull(
+            view.findViewById<View?>(R.id.drag_handle),
+            view.findViewById<View?>(R.id.float_handle_container),
+            view.findViewById<View?>(R.id.resize_handle_tl),
+            view.findViewById<View?>(R.id.resize_handle_tr),
+            view.findViewById<View?>(R.id.resize_handle_bl),
+            view.findViewById<View?>(R.id.resize_handle_br)
+        )
+        handles.forEach { clearSystemGestureExclusion(it) }
         // restore the nav bar bottom padding that floating mode drops (docked keyboard needs it)
         view.findViewById<View>(R.id.keyboard_view_wrapper)?.requestApplyInsets()
     }
@@ -121,11 +132,41 @@ object FloatingKeyboardUtils {
                     it.setColorFilter(accent)
                 }
             }
+        val handles = listOfNotNull(
+            view.findViewById<View?>(R.id.drag_handle),
+            view.findViewById<View?>(R.id.float_handle_container),
+            view.findViewById<View?>(R.id.resize_handle_tl),
+            view.findViewById<View?>(R.id.resize_handle_tr),
+            view.findViewById<View?>(R.id.resize_handle_bl),
+            view.findViewById<View?>(R.id.resize_handle_br)
+        )
+        handles.forEach { registerSystemGestureExclusion(it) }
         view.findViewById<View>(R.id.drag_handle)?.setDragListener(view)
         view.findViewById<View>(R.id.resize_handle_tl)?.setCornerResizeListener(view, Corner.TOP_LEFT)
         view.findViewById<View>(R.id.resize_handle_tr)?.setCornerResizeListener(view, Corner.TOP_RIGHT)
         view.findViewById<View>(R.id.resize_handle_bl)?.setCornerResizeListener(view, Corner.BOTTOM_LEFT)
         view.findViewById<View>(R.id.resize_handle_br)?.setCornerResizeListener(view, Corner.BOTTOM_RIGHT)
+    }
+
+    private fun updateSystemGestureExclusion(view: View) {
+        if (view.width <= 0 || view.height <= 0) return
+        val rect = Rect(0, 0, view.width, view.height)
+        ViewCompat.setSystemGestureExclusionRects(view, listOf(rect))
+    }
+
+    private fun registerSystemGestureExclusion(target: View) {
+        target.addOnLayoutChangeListener { v, left, top, right, bottom, oldL, oldT, oldR, oldB ->
+            if (right - left != oldR - oldL || bottom - top != oldB - oldT) {
+                updateSystemGestureExclusion(v)
+            }
+        }
+        target.post {
+            updateSystemGestureExclusion(target)
+        }
+    }
+
+    private fun clearSystemGestureExclusion(target: View) {
+        ViewCompat.setSystemGestureExclusionRects(target, emptyList())
     }
 
     private fun applyFloatingWindowGeometry(view: View, decorLp: WindowManager.LayoutParams, x: Int, y: Int, width: Int) {
@@ -203,6 +244,8 @@ object FloatingKeyboardUtils {
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    view.parent?.requestDisallowInterceptTouchEvent(true)
                     startX = event.rawX
                     startY = event.rawY
                     (view.rootView.layoutParams as? WindowManager.LayoutParams)?.let {
@@ -237,6 +280,8 @@ object FloatingKeyboardUtils {
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    view.parent?.requestDisallowInterceptTouchEvent(true)
                     val sv = Settings.getValues()
                     val dm = context.resources.displayMetrics
                     curX = (x0 + (event.rawX - startX)).toInt()
@@ -249,6 +294,8 @@ object FloatingKeyboardUtils {
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                    view.parent?.requestDisallowInterceptTouchEvent(false)
                     view.rootView.translationX = 0f
                     view.rootView.translationY = 0f
                     (view.layoutParams as? FrameLayout.LayoutParams)?.let {
@@ -285,6 +332,8 @@ object FloatingKeyboardUtils {
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    view.parent?.requestDisallowInterceptTouchEvent(true)
                     startX = event.rawX
                     startY = event.rawY
                     val sv = Settings.getValues()
@@ -304,6 +353,8 @@ object FloatingKeyboardUtils {
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    view.parent?.requestDisallowInterceptTouchEvent(true)
                     val sv = Settings.getValues()
                     val dm = context.resources.displayMetrics
                     val dx = (event.rawX - startX).toInt()
@@ -331,6 +382,8 @@ object FloatingKeyboardUtils {
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                    view.parent?.requestDisallowInterceptTouchEvent(false)
                     setFloatingSize(context, curW, curH)
                     KeyboardSwitcher.getInstance().reloadKeyboard()
                     FrostedGlassHelper.setDragBackgroundSuppressed(view, false)
